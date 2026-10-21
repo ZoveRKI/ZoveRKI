@@ -31,11 +31,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Action 固定到提交 SHA，作者移动版本标签也影响不到这里；升级时换成新版本的 SHA
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js and pnpm
-        uses: jdx/mise-action@v5
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+
+      # 令牌只交给这一步。抓取脚本只用到自己的代码和 Node 自带的模块，所以放在安装依赖之前：
+      # 拿到令牌时还没有运行过任何 npm 依赖；抓取代码要是引入了第三方包，这一步会直接报错
+      - name: Fetch data
+        run: node src/fetch.ts
+        env:
+          # Actions 自带的 token 就能读取公开数据。PROFILE_TOKEN 是可选的个人访问令牌（仓库 secret），
+          # 用勾选 repo 和 read:user 的 classic 令牌时，活动概览会包含私有仓库的贡献，私有仓库的名字不会显示
+          GITHUB_TOKEN: ${{ github.token }}
+          PROFILE_TOKEN: ${{ secrets.PROFILE_TOKEN }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -43,13 +54,8 @@ jobs:
       - name: Check
         run: pnpm run check
 
-      - name: Fetch data and render
-        run: pnpm run readme
-        env:
-          # Actions 自带的 token 就能读取公开数据。PROFILE_TOKEN 是可选的个人访问令牌（仓库 secret），
-          # 配置后活动概览会包含它能看到的私有仓库贡献，私有仓库的名字不会显示
-          GITHUB_TOKEN: ${{ github.token }}
-          PROFILE_TOKEN: ${{ secrets.PROFILE_TOKEN }}
+      - name: Render
+        run: node src/render.ts
 
       - name: Commit changes
         shell: bash
