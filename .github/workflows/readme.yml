@@ -1,0 +1,70 @@
+name: Profile README
+
+on:
+  # 每 6 小时刷新一次数据（贡献日历每天都在变）
+  schedule:
+    - cron: '17 */6 * * *'
+  # 可以在 Actions 页面手动运行
+  workflow_dispatch:
+  # 改了生成器或配置时立即重新生成
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'profile.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'mise.toml'
+      - '.github/workflows/readme.yml'
+
+permissions:
+  contents: write
+
+# 同一时间只运行一个，避免两次运行的提交互相覆盖
+concurrency:
+  group: readme
+  cancel-in-progress: false
+
+jobs:
+  readme:
+    name: Regenerate profile README
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js and pnpm
+        uses: jdx/mise-action@v5
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: pnpm run check
+
+      - name: Fetch data and render
+        run: pnpm run readme
+        env:
+          # Actions 自带的 token 就能读取公开数据。PROFILE_TOKEN 是可选的个人访问令牌（仓库 secret），
+          # 配置后活动概览会包含它能看到的私有仓库贡献，私有仓库的名字不会显示
+          GITHUB_TOKEN: ${{ github.token }}
+          PROFILE_TOKEN: ${{ secrets.PROFILE_TOKEN }}
+
+      - name: Commit changes
+        shell: bash
+        run: |
+          git add README.md assets data
+          if git diff --cached --quiet; then
+            echo '主页没有变化，不需要提交。'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: refresh profile'
+          # 运行期间 main 有了新提交时，把这次提交接到最新的 main 上；冲突时保留新生成的文件
+          for attempt in 1 2 3; do
+            git push && exit 0
+            git pull --rebase -X theirs origin main || { git rebase --abort; exit 1; }
+          done
+          exit 1

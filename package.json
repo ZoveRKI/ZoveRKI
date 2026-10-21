@@ -1,0 +1,27 @@
+{
+  "name": "zoverki-profile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ZoveRKI 的 GitHub 主页生成器：抓取数据，渲染终端风格的 SVG 切片和 README.md",
+  "type": "module",
+  "engines": {
+    "node": ">=26.12"
+  },
+  "scripts": {
+    "fetch-data": "node src/fetch.ts",
+    "render": "node src/render.ts",
+    "readme": "node src/fetch.ts && node src/render.ts",
+    "preview": "node src/preview.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "check": "pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "subset-font": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}

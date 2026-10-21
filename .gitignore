@@ -1,0 +1,8 @@
+# 依赖
+node_modules/
+
+# 本地 Claude 应用的预览配置
+.claude/
+
+# 只留在本地的说明文档
+GENERATOR.md

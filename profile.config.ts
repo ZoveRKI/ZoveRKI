@@ -1,0 +1,28 @@
+// 主页生成器的配置。改完运行 `pnpm readme` 在本地重新生成；推送后 GitHub Actions 也会重新生成。
+import type { ProfileConfig } from './src/config.ts';
+
+export default {
+  login: 'ZoveRKI',
+  tagline: 'Rust · TypeScript · Python — building OneByOne, one step at a time.',
+
+  projects: [
+    {
+      repo: 'OneByOne',
+      description:
+        'Understand AI code changes one step at a time: a change is split into ordered steps, each showing its own diff and explanation.',
+    },
+    {
+      repo: 'Voice-Synthesis',
+      description: 'Text-to-speech with edge-tts, plus scripts that tag MP3 metadata and merge audio files.',
+    },
+  ],
+
+  // 头部下面的一排链接按钮，例如：
+  // links: [{ label: 'Blog', url: 'https://example.com', note: 'example.com' }],
+
+  // 头部信息栏里额外显示的条目，例如：
+  // facts: [['editor', 'VS Code']],
+
+  // 板块和顺序：
+  // sections: ['contributions', 'activity', 'languages', 'projects'],
+} satisfies ProfileConfig;
