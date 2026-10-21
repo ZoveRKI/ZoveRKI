@@ -26,10 +26,10 @@
         {
           "name": "TypeScript",
           "color": "#3178c6",
-          "size": 91983
+          "size": 97972
         }
       ],
-      "pushedAt": "2026-10-21T17:55:55Z",
+      "pushedAt": "2026-10-21T18:29:05Z",
       "createdAt": "2026-10-21T16:45:25Z"
     },
     {
@@ -1995,7 +1995,110 @@
         "name": "ZoveRKI/OneByOne",
         "url": "https://github.com/ZoveRKI/OneByOne",
         "commits": 26
+      },
+      {
+        "name": "ZoveRKI/Voice-Synthesis",
+        "url": "https://github.com/ZoveRKI/Voice-Synthesis",
+        "commits": 4
+      },
+      {
+        "name": "ZoveRKI/ZoveRKI",
+        "url": "https://github.com/ZoveRKI/ZoveRKI",
+        "commits": 2
+      },
+      {
+        "name": "Javis603/token-monitor",
+        "url": "https://github.com/Javis603/token-monitor",
+        "commits": 1
       }
-    ]
-  }
+    ],
+    "privateCommits": 368
+  },
+  "privateLanguages": [
+    {
+      "name": "TypeScript",
+      "color": "#3178c6",
+      "size": 316103
+    },
+    {
+      "name": "Ruby",
+      "color": "#701516",
+      "size": 118771
+    },
+    {
+      "name": "Go",
+      "color": "#00ADD8",
+      "size": 115230
+    },
+    {
+      "name": "CSS",
+      "color": "#663399",
+      "size": 80180
+    },
+    {
+      "name": "JavaScript",
+      "color": "#f1e05a",
+      "size": 77761
+    },
+    {
+      "name": "Shell",
+      "color": "#89e051",
+      "size": 68361
+    },
+    {
+      "name": "SCSS",
+      "color": "#c6538c",
+      "size": 61287
+    },
+    {
+      "name": "HTML",
+      "color": "#e34c26",
+      "size": 56655
+    },
+    {
+      "name": "Rust",
+      "color": "#dea584",
+      "size": 47661
+    },
+    {
+      "name": "Python",
+      "color": "#3572A5",
+      "size": 26985
+    },
+    {
+      "name": "Makefile",
+      "color": "#427819",
+      "size": 5246
+    },
+    {
+      "name": "Dockerfile",
+      "color": "#384d54",
+      "size": 4602
+    },
+    {
+      "name": "Batchfile",
+      "color": "#C1F12E",
+      "size": 3630
+    },
+    {
+      "name": "Nushell",
+      "color": "#4E9906",
+      "size": 2824
+    },
+    {
+      "name": "Less",
+      "color": "#1d365d",
+      "size": 2143
+    },
+    {
+      "name": "PHP",
+      "color": "#4F5D95",
+      "size": 288
+    },
+    {
+      "name": "Nu",
+      "color": "#c9df40",
+      "size": 92
+    }
+  ]
 }
