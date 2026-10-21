@@ -23,6 +23,11 @@ export default {
     },
   ],
 
+  // 语言占比：HTML、Shell 这类标记、样式和构建脚本语言（清单见 src/config.ts 的 OTHER_LANGUAGES），
+  // 以及占比不到 1% 的语言，都归入 Other；show 里的语言从清单里拿出来单独显示。
+  // 其他可调的项，例如：{ other: ['HTML', 'Shell'], min: 2, max: 6 }
+  languages: { show: ['CSS', 'SCSS'] },
+
   // 头部下面的一排链接按钮，例如：
   // links: [{ label: 'Blog', url: 'https://example.com', note: 'example.com' }],
 

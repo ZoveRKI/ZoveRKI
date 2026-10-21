@@ -40,34 +40,49 @@ test('按星期几汇总贡献', () => {
   assert.deepEqual(weekdayTotals(days([1, 2, 3, 4, 5, 6, 7, 8])), [4, 5, 6, 7, 9, 2, 3]);
 });
 
-test('语言占比不算 fork 和主页仓库，超出数量的合并成 Other', () => {
+test('语言占比：辅助语言和占比太小的归入 Other，不算 fork 和主页仓库', () => {
   const repos = [
     repo('app', [
-      ['Rust', 600],
-      ['TypeScript', 300],
-      ['CSS', 50],
-      ['HTML', 30],
+      ['TypeScript', 500],
+      ['CSS', 300],
+      ['Rust', 150],
+      ['Python', 8],
     ]),
     repo('forked', [['Go', 10_000]], true),
     repo('octo', [['TypeScript', 10_000]]),
-    repo('tool', [['Python', 20]]),
   ];
-  const opts = { extra: [], exclude: ['html'], max: 3, profileRepo: 'Octo' };
-  const round = (s: { name: string; pct: number; other: boolean }) => [s.name, Math.round(s.pct * 10) / 10, s.other];
-  assert.deepEqual(languageShares(repos, opts).map(round), [
-    ['Rust', 61.9, false],
-    ['TypeScript', 30.9, false],
-    ['Other', 7.2, true],
-  ]);
   // 私有仓库按语言加总的数字合并进同一份统计
-  const extra = [
-    { name: 'Go', color: null, size: 30 },
-    { name: 'Rust', color: null, size: 30 },
+  const extra = [{ name: 'Shell', color: null, size: 42 }];
+  const opts = { extra, exclude: [], other: ['CSS', 'Shell'], min: 1, max: 8, profileRepo: 'Octo' };
+  const round = (s: { name: string; pct: number; other: boolean }) => [s.name, Math.round(s.pct * 10) / 10, s.other];
+  // 总数 1000：CSS、Shell 是辅助语言，Python 不到 1%，都归入 Other
+  assert.deepEqual(languageShares(repos, opts).map(round), [
+    ['TypeScript', 50, false],
+    ['Rust', 15, false],
+    ['Other', 35, true],
+  ]);
+  // max 限制单独显示的数量
+  assert.deepEqual(languageShares(repos, { ...opts, max: 1 }).map(round), [
+    ['TypeScript', 50, false],
+    ['Other', 50, true],
+  ]);
+  // exclude 的语言连总数都不算：总数变成 700，Python 超过 1% 就单独显示了
+  assert.deepEqual(languageShares(repos, { ...opts, exclude: ['css'] }).map(round), [
+    ['TypeScript', 71.4, false],
+    ['Rust', 21.4, false],
+    ['Python', 1.1, false],
+    ['Other', 6, true],
+  ]);
+  // 全都是辅助语言时按占比显示
+  const site = [
+    repo('site', [
+      ['HTML', 60],
+      ['CSS', 40],
+    ]),
   ];
-  assert.deepEqual(languageShares(repos, { ...opts, extra }).map(round), [
-    ['Rust', 61.2, false],
-    ['TypeScript', 29.1, false],
-    ['Other', 9.7, true],
+  assert.deepEqual(languageShares(site, { ...opts, extra: [], other: ['HTML', 'CSS'] }).map(round), [
+    ['HTML', 60, false],
+    ['CSS', 40, false],
   ]);
 });
 

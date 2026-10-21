@@ -4,7 +4,8 @@ import { sectionTop, slice } from '../frame.ts';
 import { delay, esc, r2, textWidth, truncate } from '../svg.ts';
 import { type Geo, theme as t, up } from '../theme.ts';
 
-const pct = (p: number): string => `${p.toFixed(1)}%`;
+/** 百分比保留一位小数；不到 0.05% 的显示成 <0.1%，免得出现 0.0% */
+const pct = (p: number): string => (p < 0.05 ? '<0.1%' : `${p.toFixed(1)}%`);
 
 /** 统计范围：有私有仓库的数据时，公开和私有的合在一起算 */
 const scope = (c: Ctx): string => (c.s.privateLanguages.length ? 'public and private repos' : 'public repos');
@@ -16,13 +17,19 @@ export async function languages(g: Geo, c: Ctx): Promise<string> {
   const W = g.right - g.left;
   const barY = g.top + 2;
   const barH = g.phone ? 10 : 12;
+  // 不到 1px 的语言在条上看不见，只出现在图例里；看得见的最后一段画到条的末端
+  const widths = c.langs.map((l) => (W * l.pct) / 100);
+  const last = widths.findLastIndex((w) => w >= 1);
   let x = g.left;
   const segments = c.langs
     .map((l, i) => {
-      const w = (W * l.pct) / 100;
-      // 段与段之间留 2px 缝，最后一段填满
-      const width = i === c.langs.length - 1 ? g.right - x : Math.max(1, w - 2);
-      const seg = `<rect x="${r2(x)}" y="${barY}" width="${r2(width)}" height="${barH}" fill="${l.color}" class="grow" ${delay(0.2 + i * 0.1)}/>`;
+      const w = widths[i] ?? 0;
+      // 段与段之间留 2px 缝
+      const width = i === last ? g.right - x : w - 2;
+      const seg =
+        w < 1 || i > last
+          ? ''
+          : `<rect x="${r2(x)}" y="${barY}" width="${r2(Math.max(1, width))}" height="${barH}" fill="${l.color}" class="grow" ${delay(0.2 + i * 0.06)}/>`;
       x += w;
       return seg;
     })
@@ -38,7 +45,7 @@ export async function languages(g: Geo, c: Ctx): Promise<string> {
       const ly = legendY + Math.floor(i / cols) * rowStep;
       const p = pct(l.pct);
       const name = truncate(l.name, g.small + 1, colW - 48 - textWidth(p, g.small));
-      return `<g class="in" ${delay(0.3 + i * 0.06)}><rect x="${r2(lx)}" y="${ly - 10}" width="10" height="10" rx="2" fill="${l.color}"/><text x="${r2(lx + 18)}" y="${ly}" font-size="${g.small + 1}">${esc(name)}</text><text x="${r2(lx + colW - 24)}" y="${ly}" text-anchor="end" class="dim" font-size="${g.small}">${p}</text></g>`;
+      return `<g class="in" ${delay(0.3 + i * 0.06)}><rect x="${r2(lx)}" y="${ly - 10}" width="10" height="10" rx="2" fill="${l.color}"/><text x="${r2(lx + 18)}" y="${ly}" font-size="${g.small + 1}">${esc(name)}</text><text x="${r2(lx + colW - 24)}" y="${ly}" text-anchor="end" class="dim" font-size="${g.small}">${esc(p)}</text></g>`;
     })
     .join('\n');
   const rows = Math.ceil(c.langs.length / cols);

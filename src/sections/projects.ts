@@ -9,7 +9,7 @@ export const projectAlt = (p: Project): string => `${p.name}: ${p.description}`;
 
 export async function projectsHead(g: Geo, c: Ctx): Promise<string> {
   const body = sectionTop(g, 'ls -l ~/projects', `# ${plural(c.projects.length, 'project')}`);
-  return slice(g, g.phone ? 60 : 80, body, { title: 'Projects' });
+  return slice(g, 80, body, { title: 'Projects' });
 }
 
 /** 语言、star、fork 三项，从 x 开始往右排；返回标记和总宽度 */
@@ -59,16 +59,21 @@ export async function projectRow(g: Geo, p: Project, i: number): Promise<string>
     .filter(Boolean)
     .join(' · ');
   const infoY = descY + (lines.length - 1) * descStep + (g.phone ? 24 : 26);
-  const h = up(infoY + (g.phone ? 16 : 18));
+  // 高度取整到网格的倍数后，多出来的空白上下平分，内容垂直居中
+  const natural = infoY + (g.phone ? 16 : 18);
+  const h = up(natural);
+  const dy = Math.floor((h - natural) / 2);
 
   const body = `${i ? `<line x1="${g.left}" y1="0.5" x2="${g.right}" y2="0.5" stroke="${t.line}" stroke-dasharray="2 4"/>` : ''}
 <rect x="${g.left}" y="12" width="3" height="${h - 24}" rx="1.5" fill="${p.color}"/>
+<g transform="translate(0 ${dy})">
 <g class="in" ${delay(0.15)}>
 <text x="${x}" y="${nameY}" font-size="${nameSize}" font-weight="700" class="ac">${esc(name)}</text>
 ${arrow(x + textWidth(name, nameSize) + 10, nameY - nameSize * 0.62, nameSize * 0.5, t.accent)}
 ${metaMarkup}
 </g>
 <g class="in" ${delay(0.3)}>${lines.map((line, k) => `<text x="${x}" y="${descY + k * descStep}" font-size="${descSize}">${esc(line)}</text>`).join('')}</g>
-${info ? `<g class="in" ${delay(0.4)}><text x="${x}" y="${infoY}" class="faint" font-size="${g.small - 1}">${esc(truncate(info, g.small - 1, g.right - x))}</text></g>` : ''}`;
+${info ? `<g class="in" ${delay(0.4)}><text x="${x}" y="${infoY}" class="faint" font-size="${g.small - 1}">${esc(truncate(info, g.small - 1, g.right - x))}</text></g>` : ''}
+</g>`;
   return slice(g, h, body, { title: projectAlt(p) });
 }

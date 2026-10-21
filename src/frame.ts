@@ -1,5 +1,5 @@
-// 终端窗口的外框。每张切片都画左右边框，只有第一张画顶边、最后一张画底边，
-// 一张张图上下拼起来就是一个完整的窗口。
+// 终端窗口的外框，样式照着 Giorgi Kobaidze 的设计（见 NOTICE）：霓虹边线、四角外侧的折角、背景网格。
+// 每张切片都画左右边线，只有第一张画顶边、最后一张画底边，一张张图上下拼起来就是一个完整的窗口。
 import { fontFaces } from './font.ts';
 import { delay, esc, r2, textWidth, visibleText } from './svg.ts';
 import { type Geo, theme as t, UNIT } from './theme.ts';
@@ -43,9 +43,9 @@ ${faces}
 ${baseCss(g)}${d.css ? `\n${d.css}` : ''}
 </style>
 <defs>
-<filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${h}"><feGaussianBlur stdDeviation="${g.phone ? 5 : 7}"/></filter>
+<filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${h}"><feGaussianBlur stdDeviation="${g.phone ? 4 : 6}"/></filter>
 <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="${g.phone ? 3 : 4.5}"/></filter>
-<pattern id="dots" x="${r2(gridX)}" y="0" width="${UNIT}" height="${UNIT}" patternUnits="userSpaceOnUse"><circle cx="${UNIT / 2}" cy="${UNIT / 2}" r="1" fill="${t.faint}" fill-opacity=".3"/></pattern>${d.defs ? `\n${d.defs}` : ''}
+<pattern id="grid" x="${r2(gridX)}" y="0" width="${UNIT}" height="${UNIT}" patternUnits="userSpaceOnUse"><path d="M${UNIT} 0H0V${UNIT}" fill="none" stroke="${t.accent}" stroke-opacity=".06"/></pattern>${d.defs ? `\n${d.defs}` : ''}
 </defs>
 ${parts.under}
 ${parts.body}
@@ -58,44 +58,39 @@ function checkHeight(h: number): void {
   if (h % UNIT) throw new Error(`切片高度 ${h} 不是 ${UNIT} 的倍数，背景点阵会错位`);
 }
 
-type Edges = { top: boolean; bottom: boolean };
+/** 边线下面的光晕 */
+const glowPath = (d: string): string =>
+  `<path d="${d}" fill="none" stroke="${t.accent}" stroke-width="3" opacity=".55" filter="url(#glow)"/>`;
 
-/** 窗口的外轮廓（闭合路径，用来填充背景） */
-function outline(x0: number, x1: number, y0: number, y1: number, r: number, e: Edges): string {
-  const top = e.top
-    ? `M${x0} ${y0 + r}A${r} ${r} 0 0 1 ${x0 + r} ${y0}H${x1 - r}A${r} ${r} 0 0 1 ${x1} ${y0 + r}`
-    : `M${x0} ${y0}H${x1}`;
-  const bottom = e.bottom ? `V${y1 - r}A${r} ${r} 0 0 1 ${x1 - r} ${y1}H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${y1 - r}` : `V${y1}H${x0}`;
-  return `${top}${bottom}Z`;
-}
-
-/**
- * 窗口的边框，接着别的切片的一侧不封口。
- * ext 把不封口一侧的左右边延长到图片外面，模糊出来的光晕在接缝处才连贯。
- */
-function border(x0: number, x1: number, y0: number, y1: number, r: number, e: Edges, ext = 0): string {
-  const ya = e.top ? y0 + r : y0 - ext;
-  const yb = e.bottom ? y1 - r : y1 + ext;
-  let d = `M${x0} ${yb}V${ya}`;
-  d += e.top ? `A${r} ${r} 0 0 1 ${x0 + r} ${y0}H${x1 - r}A${r} ${r} 0 0 1 ${x1} ${y0 + r}` : `M${x1} ${ya}`;
-  d += `V${yb}`;
-  if (e.bottom) d += `A${r} ${r} 0 0 1 ${x1 - r} ${y1}H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${y1 - r}`;
-  return d;
-}
+/** 边线 */
+const railPath = (d: string): string => `<path d="${d}" fill="none" stroke="${t.accent}" stroke-width="1.2"/>`;
 
 export type SliceOpts = Doc & { top?: boolean; bottom?: boolean };
 
 /** 占满一整行的切片 */
 export async function slice(g: Geo, h: number, body: string, o: SliceOpts): Promise<string> {
   checkHeight(h);
-  const e: Edges = { top: !!o.top, bottom: !!o.bottom };
-  const y0 = e.top ? g.m : 0;
-  const y1 = e.bottom ? h - g.m : h;
-  const shape = outline(g.x0, g.x1, y0, y1, g.r, e);
-  const under = `<path d="${border(g.x0, g.x1, y0, y1, g.r, e, 40)}" fill="none" stroke="${t.accent}" stroke-width="2" opacity=".45" filter="url(#glow)"/>
-<path d="${shape}" fill="${t.bg}"/>
-<path d="${shape}" fill="url(#dots)"/>`;
-  const over = `<path d="${border(g.x0, g.x1, y0, y1, g.r, e)}" fill="none" stroke="${t.border}"/>`;
+  const { x0, x1 } = g;
+  const y0 = o.top ? g.m : 0;
+  const y1 = o.bottom ? h - g.m : h;
+  const top = o.top ? `M${x0} ${y0}H${x1}` : '';
+  const bottom = o.bottom ? `M${x0} ${y1}H${x1}` : '';
+  const rails = `M${x0} ${y0}V${y1}M${x1} ${y0}V${y1}${top}${bottom}`;
+  // 没有封口的一侧，光晕的竖线延长到图片外面，模糊后在接缝处才连贯
+  const glow = `M${x0} ${o.top ? y0 : -40}V${o.bottom ? y1 : h + 40}M${x1} ${o.top ? y0 : -40}V${o.bottom ? y1 : h + 40}${top}${bottom}`;
+  const [k, len] = g.corner;
+  let corners = '';
+  if (o.top) {
+    corners += `<path d="M${x0 - k} ${y0 + len}V${y0 - k}H${x0 + len}"/><path d="M${x1 - len} ${y0 - k}H${x1 + k}V${y0 + len}"/>`;
+  }
+  if (o.bottom) {
+    corners += `<path d="M${x0 - k} ${y1 - len}V${y1 + k}H${x0 + len}"/><path d="M${x1 - len} ${y1 + k}H${x1 + k}V${y1 - len}"/>`;
+  }
+  const box = `x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}"`;
+  const under = `${glowPath(glow)}
+<rect ${box} fill="${t.bg}"/>
+<rect ${box} fill="url(#grid)"/>`;
+  const over = `${railPath(rails)}${corners ? `\n<g fill="none" stroke="${t.accent}" stroke-width="2">${corners}</g>` : ''}`;
   return document(g, g.w, h, { under, body, over }, o);
 }
 
@@ -112,9 +107,9 @@ export async function segment(g: Geo, k: number, n: number, h: number, body: str
   const box = `x="${r2(bx0)}" y="0" width="${r2(bx1 - bx0)}" height="${h}"`;
   const glow = sides.map((x) => `M${r2(x)} -40V${h + 40}`).join('');
   const rails = sides.map((x) => `M${r2(x)} 0V${h}`).join('');
-  const under = `${glow ? `<path d="${glow}" fill="none" stroke="${t.accent}" stroke-width="2" opacity=".45" filter="url(#glow)"/>\n` : ''}<rect ${box} fill="${t.bg}"/>
-<rect ${box} fill="url(#dots)"/>`;
-  const over = rails ? `<path d="${rails}" fill="none" stroke="${t.border}"/>` : '';
+  const under = `${glow ? `${glowPath(glow)}\n` : ''}<rect ${box} fill="${t.bg}"/>
+<rect ${box} fill="url(#grid)"/>`;
+  const over = rails ? railPath(rails) : '';
   return document(g, sw, h, { under, body, over }, o, ((-off % UNIT) + UNIT) % UNIT);
 }
 

@@ -43,18 +43,28 @@ export type Share = { name: string; color: string; size: number; pct: number; ot
 type ShareOpts = {
   /** 私有仓库按语言加总的代码量 */
   extra: Language[];
+  /** 完全不计入统计的语言 */
   exclude: string[];
+  /** 计入统计、但一律归入 Other 的语言 */
+  other: string[];
+  /** 占比低于它（%）的语言归入 Other */
+  min: number;
+  /** 最多单独显示几种 */
   max: number;
   /** 主页仓库（生成器的代码）不算在内 */
   profileRepo: string;
 };
 
+const lower = (names: string[]): Set<string> => new Set(names.map((s) => s.toLowerCase()));
+
 /**
  * 各语言的代码量占比。算自己名下的非 fork 仓库，公开和私有的合在一起（私有仓库只有按语言加总的数字），
- * 不算主页仓库本身；超过 max 种时，排在后面的合并成 Other。
+ * 不算主页仓库本身。标记、样式、构建脚本这类辅助语言和占比太小的语言归入 Other，
+ * 其余按占比从大到小单独显示，最多 max 种。
  */
 export function languageShares(repos: Repo[], o: ShareOpts): Share[] {
-  const skip = new Set(o.exclude.map((s) => s.toLowerCase()));
+  const skip = lower(o.exclude);
+  const helpers = lower(o.other);
   const sizes = new Map<string, { size: number; color: string | null }>();
   const add = (l: Language) => {
     if (skip.has(l.name.toLowerCase())) return;
@@ -70,14 +80,15 @@ export function languageShares(repos: Repo[], o: ShareOpts): Share[] {
   o.extra.forEach(add);
   const total = [...sizes.values()].reduce((n, v) => n + v.size, 0);
   if (!total) return [];
-  const sorted = [...sizes]
-    .map(([name, v]) => ({ name, size: v.size, color: readable(v.color ?? t.dim) }))
+  const sorted: Share[] = [...sizes]
+    .map(([name, v]) => ({ name, size: v.size, color: readable(v.color ?? t.dim), pct: (v.size / total) * 100, other: false }))
     .sort((a, b) => b.size - a.size || (a.name < b.name ? -1 : 1));
-  const head = sorted.length > o.max ? sorted.slice(0, o.max - 1) : sorted;
-  const out: Share[] = head.map((l) => ({ ...l, pct: (l.size / total) * 100, other: false }));
-  const rest = sorted.slice(head.length).reduce((n, l) => n + l.size, 0);
-  if (rest) out.push({ name: 'Other', color: t.faint, size: rest, pct: (rest / total) * 100, other: true });
-  return out;
+  let head = sorted.filter((l) => !helpers.has(l.name.toLowerCase()) && l.pct >= o.min).slice(0, o.max);
+  // 全都是辅助语言时按占比显示，免得只剩一个 Other
+  if (!head.length) head = sorted.slice(0, o.max);
+  const shown = new Set(head);
+  const rest = sorted.filter((l) => !shown.has(l)).reduce((n, l) => n + l.size, 0);
+  return rest ? [...head, { name: 'Other', color: t.faint, size: rest, pct: (rest / total) * 100, other: true }] : head;
 }
 
 export type OverviewItem = {

@@ -4,6 +4,7 @@ import { resolveConfig } from './config.ts';
 import { buildContext } from './context.ts';
 import type { Level, Snapshot } from './data.ts';
 import { renderPage } from './render.ts';
+import { UNIT } from './theme.ts';
 
 const config = resolveConfig({
   login: 'octo',
@@ -41,10 +42,7 @@ function snapshot(): Snapshot {
         license: 'MIT',
         topics: ['cli', 'rust'],
         language: 'Rust',
-        languages: [
-          { name: 'Rust', color: '#dea584', size: 9000 },
-          { name: 'Shell', color: null, size: 100 },
-        ],
+        languages: [{ name: 'Rust', color: '#dea584', size: 9000 }],
         pushedAt: '2026-10-01T00:00:00Z',
         createdAt: '2024-01-01T00:00:00Z',
       },
@@ -59,27 +57,34 @@ function snapshot(): Snapshot {
       repos: [{ name: 'octo/alpha', url: 'https://github.com/octo/alpha', commits: 280 }],
       privateCommits: 120,
     },
-    privateLanguages: [{ name: 'Go', color: '#00ADD8', size: 5000 }],
+    privateLanguages: [
+      { name: 'Go', color: '#00ADD8', size: 5000 },
+      // 辅助语言，归入 Other；Other 里只有它，不到 0.05%，图例里显示成 <0.1%
+      { name: 'Nu', color: null, size: 1 },
+    ],
   };
 }
 
-/** 粗略检查标签是否配对，避免生成坏掉的 SVG */
+const TAG = /<(\/?)([a-zA-Z][\w:-]*)[^>]*>/g;
+
+/** 粗略检查标签是否配对、文字里有没有没转义的 <，避免生成坏掉的 SVG */
 function assertWellFormed(name: string, xml: string): void {
   const stack: string[] = [];
-  for (const [tag, close, tagName = ''] of xml.matchAll(/<(\/?)([a-zA-Z][\w:-]*)[^>]*>/g)) {
+  for (const [tag, close, tagName = ''] of xml.matchAll(TAG)) {
     if (tag.endsWith('/>')) continue;
     if (close) assert.equal(stack.pop(), tagName, `${name}：</${tagName}> 没有对应的开始标签`);
     else stack.push(tagName);
   }
   assert.deepEqual(stack, [], `${name}：有标签没有闭合`);
+  assert.ok(!xml.replace(TAG, '').includes('<'), `${name}：文字里有没转义的 <`);
 }
 
-test('切片高度都是 20 的倍数、标签配对，README 引用的图片都存在', async () => {
+test('切片高度都是网格的倍数、标签配对，README 引用的图片都存在', async () => {
   const page = await renderPage(buildContext(config, snapshot()));
   assert.ok(page.files.has('activity.svg') && page.files.has('phone/activity.svg'));
   for (const [name, svg] of page.files) {
     const h = Number(svg.match(/height="([\d.]+)"/)?.[1]);
-    assert.equal(h % 20, 0, `${name} 的高度是 ${h}`);
+    assert.equal(h % UNIT, 0, `${name} 的高度是 ${h}`);
     assertWellFormed(name, svg);
   }
   const readme = page.readme();
@@ -97,9 +102,26 @@ test('私有仓库只显示汇总数字，langs 放不下时只显示前三个',
   assert.match(svg('activity.svg'), />\+ 120 commits in private repos</);
   assert.match(svg('languages.svg'), /bytes of code in public and private repos/);
   assert.match(svg('languages.svg'), />Go</);
+  assert.match(svg('languages.svg'), />&lt;0\.1%</);
   // 桌面版的信息栏放不下五种语言，手机版放得下
   assert.match(svg('header.svg'), />Rust, Go, TypeScript</);
   assert.match(svg('phone/header.svg'), />Rust, Go, TypeScript, Python, Ruby</);
+});
+
+test('头部是状态栏、结尾是 EOF；手机版状态栏放不下时只留 ONLINE', async () => {
+  const page = await renderPage(buildContext(config, snapshot()));
+  const svg = (name: string) => page.files.get(name) ?? '';
+  assert.match(svg('header.svg'), />SYS:\/\/GITHUB \/\/ NODE:OCTO</);
+  assert.match(svg('header.svg'), />ONLINE · ALL SYSTEMS NOMINAL</);
+  assert.match(svg('phone/header.svg'), />ONLINE</);
+  assert.doesNotMatch(svg('phone/header.svg'), /ALL SYSTEMS NOMINAL/);
+  assert.match(svg('footer.svg'), /connection to <tspan class="ac">octo<\/tspan> closed\. <tspan class="faint">\/\/ EOF/);
+});
+
+test('languages.show 把语言从 Other 清单里拿出来，不区分大小写', () => {
+  const { other } = resolveConfig({ login: 'octo', tagline: '', languages: { show: ['css', 'SCSS'] } }).languages;
+  assert.ok(!other.includes('CSS') && !other.includes('SCSS'));
+  assert.ok(other.includes('HTML') && other.includes('Shell'));
 });
 
 test('同样的数据生成一模一样的文件', async () => {

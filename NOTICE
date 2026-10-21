@@ -1,14 +1,15 @@
-本仓库的主页生成器仿照 jdx 的个人主页生成器制作：
+本仓库的主页生成器仿照 jdx 和 Giorgi Kobaidze 的个人主页生成器制作：
 
   https://github.com/jdx/jdx
-
-用多张 SVG 切片拼成一个终端窗口的做法，以及 src/frame.ts、src/page.ts、src/font.ts、
-src/svg.ts 和 .github/workflows/readme.yml 中的部分代码结构，参考了他的代码。
-jdx 的这部分代码移植自 Giorgi Kobaidze 的主页生成器：
-
   https://github.com/georgekobaidze/georgekobaidze (tools/profile)
 
-该项目使用以下许可证（原文）：
+- 用多张 SVG 切片拼成一个终端窗口的做法，以及 src/frame.ts、src/page.ts、src/font.ts、
+  src/svg.ts 和 .github/workflows/readme.yml 中的部分代码结构，参考了 jdx 的代码；
+  jdx 的这部分代码移植自 Giorgi Kobaidze 的主页生成器。
+- 终端外框（霓虹边线、四角外侧的折角、背景网格）、头部的状态栏和结尾的 exit 一段，
+  照着 Giorgi Kobaidze 的设计实现。
+
+Giorgi Kobaidze 的主页生成器使用以下许可证（原文）：
 
 MIT License
 

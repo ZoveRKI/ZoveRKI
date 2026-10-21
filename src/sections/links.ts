@@ -6,7 +6,7 @@ import { type Geo, theme as t } from '../theme.ts';
 
 export async function linkButton(g: Geo, l: Link, k: number, n: number): Promise<string> {
   const sw = g.w / n;
-  const h = g.phone ? 60 : 80;
+  const h = 80;
   const inset = g.phone ? 12 : 20;
   // 最外侧的两段要让出窗口边框外的边距
   const left = k === 0 ? g.left : inset;

@@ -1,12 +1,10 @@
-// 头部：终端标题栏、whoami 打字效果、发光的大标题和一句话简介，右边是 neofetch 风格的信息栏
+// 头部：最上面的状态栏、whoami 打字效果、发光的大标题和一句话简介，右边是 neofetch 风格的信息栏
 import type { Ctx } from '../context.ts';
 import { slice } from '../frame.ts';
 import { accountAge } from '../metrics.ts';
 import { ADVANCE, delay, esc, num, plural, r2, textWidth, truncate, wrap } from '../svg.ts';
 import { type Geo, theme as t, up } from '../theme.ts';
 
-/** 标题栏左边的三个圆点 */
-const LIGHTS = ['#ff5f57', '#febc2e', '#28c840'];
 /** 信息栏底部的色块，和 neofetch 一样展示终端配色 */
 const PALETTE = [t.red, t.yellow, t.green, t.cyan, t.accent, t.accent2, t.dim, t.fg];
 /** 桌面版信息栏的左边界 */
@@ -14,8 +12,10 @@ const INFO_X = 540;
 
 const CSS = `@keyframes ztype{from{opacity:0}to{opacity:1}}
 @keyframes zflick{0%,88%,92%,96%,100%{opacity:.5}90%{opacity:.15}94%{opacity:.3}}
+@keyframes zpulse{50%{opacity:.35}}
 .ty{animation:ztype .01s linear both}
-.flicker{animation:zflick 7s 2s infinite}`;
+.flicker{animation:zflick 7s 2s infinite}
+.dot{animation:zpulse 2s ease-in-out infinite}`;
 
 export const headerAlt = (c: Ctx): string => `${c.config.name}: ${c.config.tagline}`;
 
@@ -53,17 +53,24 @@ function facts(c: Ctx, fits: (s: string) => boolean): [string, string][] {
   return [...out, ...c.config.facts];
 }
 
-function titleBar(g: Geo, title: string): string {
-  const { x0, x1, m: y0, r, bar } = g;
-  const y1 = y0 + bar;
-  const step = g.phone ? 16 : 20;
-  const lights = LIGHTS.map(
-    (fill, i) => `<circle cx="${x0 + step + 4 + i * step}" cy="${y0 + bar / 2}" r="${g.phone ? 5 : 6}" fill="${fill}"/>`,
-  ).join('');
-  return `<path d="M${x0} ${y1}V${y0 + r}A${r} ${r} 0 0 1 ${x0 + r} ${y0}H${x1 - r}A${r} ${r} 0 0 1 ${x1} ${y0 + r}V${y1}Z" fill="${t.bar}"/>
-<line x1="${x0}" y1="${y1}" x2="${x1}" y2="${y1}" stroke="${t.line}"/>
-${lights}
-<text x="${(x0 + x1) / 2}" y="${y0 + bar / 2 + 4.5}" text-anchor="middle" class="faint" font-size="${g.small}">${esc(title)}</text>`;
+/** 最上面的状态栏：左边一段标签，右边是绿色呼吸灯和状态；放不下时右边只留第一段（比如 ONLINE） */
+function statusBar(g: Geo, [left, right]: [string, string]): string {
+  const { x0, x1, m: y0, bar } = g;
+  const size = g.small - 1;
+  const pad = g.phone ? 12 : 16;
+  // 字距 1px，每个字符多占 1px
+  const width = (s: string) => textWidth(s, size) + [...s].length;
+  const room = x1 - x0 - pad * 2 - width(left) - 30;
+  const shown = [right, right.split(' · ')[0] ?? ''].find((s) => width(s) <= room) ?? '';
+  const ty = y0 + bar / 2 + 4;
+  const dot = shown
+    ? `<circle class="dot" cx="${r2(x1 - pad - width(shown) - 12)}" cy="${y0 + bar / 2}" r="4" fill="${t.green}"/><circle class="dot" cx="${r2(x1 - pad - width(shown) - 12)}" cy="${y0 + bar / 2}" r="4" fill="${t.green}" filter="url(#soft)"/>
+<text x="${x1 - pad}" y="${ty}" letter-spacing="1" text-anchor="end" class="dim" font-size="${size}">${esc(shown)}</text>`
+    : '';
+  return `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${bar}" fill="${t.accent}" fill-opacity=".08"/>
+<line x1="${x0}" y1="${y0 + bar}" x2="${x1}" y2="${y0 + bar}" stroke="${t.accent}" stroke-opacity=".5"/>
+<text x="${x0 + pad}" y="${ty}" letter-spacing="1" class="ac" font-size="${size}">${esc(left)}</text>
+${dot}`;
 }
 
 export async function header(g: Geo, c: Ctx): Promise<string> {
@@ -75,7 +82,7 @@ export async function header(g: Geo, c: Ctx): Promise<string> {
   const tagStep = tagSize + 8;
   const tagLines = wrap(tagline, tagSize, leftW);
 
-  const whoY = g.m + g.bar + (g.phone ? 34 : 44);
+  const whoY = g.m + g.bar + (g.phone ? 38 : 52);
   const nameY = whoY + Math.round(nameSize * 1.1);
   const tagY = nameY + (g.phone ? 32 : 42);
   const tagEnd = tagY + (tagLines.length - 1) * tagStep;
@@ -100,7 +107,7 @@ export async function header(g: Geo, c: Ctx): Promise<string> {
   const [user = host, at = ''] = host.split('@');
   const sw = g.phone ? 14 : 16;
 
-  const body = `${titleBar(g, `${host}: ~`)}
+  const body = `${statusBar(g, c.config.status)}
 <text x="${g.left}" y="${whoY}" class="ok" font-weight="700">$</text>${typed}
 <g class="in" ${delay(0.95)}>
 <text x="${g.left}" y="${nameY}" font-size="${nameSize}" font-weight="700" fill="${t.accent}" opacity=".5" filter="url(#soft)" class="flicker">${esc(name)}</text>

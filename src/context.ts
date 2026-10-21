@@ -50,12 +50,7 @@ export function buildContext(config: Config, s: Snapshot): Ctx {
     streak: streaks(days),
     best: bestDay(days),
     weekdays: weekdayTotals(days),
-    langs: languageShares(s.repos, {
-      extra: s.privateLanguages,
-      exclude: config.languages.exclude,
-      max: config.languages.max,
-      profileRepo: config.login,
-    }),
+    langs: languageShares(s.repos, { ...config.languages, extra: s.privateLanguages, profileRepo: config.login }),
     overview: s.activity ? overview(s.activity) : null,
     topRepos: s.activity?.repos ?? [],
     privateCommits: s.activity?.privateCommits ?? 0,
