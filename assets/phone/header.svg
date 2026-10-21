@@ -48,8 +48,8 @@ svg{font-family:ZMono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-
 <g class="in" style="animation-delay:1.35s"><text x="24" y="252" font-size="12"><tspan class="ac2" font-weight="700">uptime</tspan><tspan x="88.8">2y 5m</tspan></text></g>
 <g class="in" style="animation-delay:1.43s"><text x="24" y="273" font-size="12"><tspan class="ac2" font-weight="700">repos</tspan><tspan x="88.8">4 public</tspan></text></g>
 <g class="in" style="animation-delay:1.51s"><text x="24" y="294" font-size="12"><tspan class="ac2" font-weight="700">langs</tspan><tspan x="88.8">Rust, TypeScript, CSS</tspan></text></g>
-<g class="in" style="animation-delay:1.59s"><text x="24" y="315" font-size="12"><tspan class="ac2" font-weight="700">contrib</tspan><tspan x="88.8">431 in the last year</tspan></text></g>
-<g class="in" style="animation-delay:1.67s"><text x="24" y="336" font-size="12"><tspan class="ac2" font-weight="700">streak</tspan><tspan x="88.8">4 days · best 10</tspan></text></g>
+<g class="in" style="animation-delay:1.59s"><text x="24" y="315" font-size="12"><tspan class="ac2" font-weight="700">contrib</tspan><tspan x="88.8">432 in the last year</tspan></text></g>
+<g class="in" style="animation-delay:1.67s"><text x="24" y="336" font-size="12"><tspan class="ac2" font-weight="700">streak</tspan><tspan x="88.8">5 days · best 10</tspan></text></g>
 <g class="in" style="animation-delay:1.80s"><rect x="24" y="349" width="14" height="8" rx="2" fill="#ff6b81"/><rect x="42" y="349" width="14" height="8" rx="2" fill="#f5c26b"/><rect x="60" y="349" width="14" height="8" rx="2" fill="#4fd69c"/><rect x="78" y="349" width="14" height="8" rx="2" fill="#4fd8eb"/><rect x="96" y="349" width="14" height="8" rx="2" fill="#5aaeff"/><rect x="114" y="349" width="14" height="8" rx="2" fill="#b48cff"/><rect x="132" y="349" width="14" height="8" rx="2" fill="#8494aa"/><rect x="150" y="349" width="14" height="8" rx="2" fill="#d3dbe8"/></g>
 <path d="M8 400V18A10 10 0 0 1 18 8H422A10 10 0 0 1 432 18V400" fill="none" stroke="#2a3950"/>
 </svg>
