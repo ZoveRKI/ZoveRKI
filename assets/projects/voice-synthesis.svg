@@ -16,15 +16,16 @@ svg{font-family:ZMono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 <defs>
-<filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="880" height="120"><feGaussianBlur stdDeviation="7"/></filter>
+<filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="880" height="120"><feGaussianBlur stdDeviation="6"/></filter>
 <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="4.5"/></filter>
-<pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="#56647a" fill-opacity=".3"/></pattern>
+<pattern id="grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#5aaeff" stroke-opacity=".06"/></pattern>
 </defs>
-<path d="M16 160V-40M864 -40V160" fill="none" stroke="#5aaeff" stroke-width="2" opacity=".45" filter="url(#glow)"/>
-<path d="M16 0H864V120H16Z" fill="#0a0f17"/>
-<path d="M16 0H864V120H16Z" fill="url(#dots)"/>
+<path d="M16 -40V160M864 -40V160" fill="none" stroke="#5aaeff" stroke-width="3" opacity=".55" filter="url(#glow)"/>
+<rect x="16" y="0" width="848" height="120" fill="#0a0f17"/>
+<rect x="16" y="0" width="848" height="120" fill="url(#grid)"/>
 <line x1="48" y1="0.5" x2="832" y2="0.5" stroke="#1e2a3b" stroke-dasharray="2 4"/>
 <rect x="48" y="12" width="3" height="96" rx="1.5" fill="#3572A5"/>
+<g transform="translate(0 7)">
 <g class="in" style="animation-delay:0.15s">
 <text x="66" y="34" font-size="18" font-weight="700" class="ac">Voice-Synthesis</text>
 <path d="M238 31.84L247 22.84M240.7 22.84H247V29.14" fill="none" stroke="#5aaeff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -32,5 +33,6 @@ svg{font-family:ZMono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-
 </g>
 <g class="in" style="animation-delay:0.30s"><text x="66" y="62" font-size="14">Text-to-speech with edge-tts, plus scripts that tag MP3 metadata and merge audio files.</text></g>
 <g class="in" style="animation-delay:0.40s"><text x="66" y="88" class="faint" font-size="12">updated 2026-09-29</text></g>
-<path d="M16 120V0M864 0V120" fill="none" stroke="#2a3950"/>
+</g>
+<path d="M16 0V120M864 0V120" fill="none" stroke="#5aaeff" stroke-width="1.2"/>
 </svg>

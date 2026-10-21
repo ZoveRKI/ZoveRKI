@@ -16,15 +16,16 @@ svg{font-family:ZMono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 <defs>
-<filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="440" height="160"><feGaussianBlur stdDeviation="5"/></filter>
+<filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="440" height="160"><feGaussianBlur stdDeviation="4"/></filter>
 <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
-<pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="#56647a" fill-opacity=".3"/></pattern>
+<pattern id="grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#5aaeff" stroke-opacity=".06"/></pattern>
 </defs>
-<path d="M8 200V-40M432 -40V200" fill="none" stroke="#5aaeff" stroke-width="2" opacity=".45" filter="url(#glow)"/>
-<path d="M8 0H432V160H8Z" fill="#0a0f17"/>
-<path d="M8 0H432V160H8Z" fill="url(#dots)"/>
+<path d="M8 -40V200M432 -40V200" fill="none" stroke="#5aaeff" stroke-width="3" opacity=".55" filter="url(#glow)"/>
+<rect x="8" y="0" width="424" height="160" fill="#0a0f17"/>
+<rect x="8" y="0" width="424" height="160" fill="url(#grid)"/>
 
 <rect x="24" y="12" width="3" height="136" rx="1.5" fill="#dea584"/>
+<g transform="translate(0 1)">
 <g class="in" style="animation-delay:0.15s">
 <text x="42" y="30" font-size="16" font-weight="700" class="ac">OneByOne</text>
 <path d="M128.8 28.08L136.8 20.08M131.2 20.08H136.8V25.68" fill="none" stroke="#5aaeff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -32,5 +33,6 @@ svg{font-family:ZMono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-
 </g>
 <g class="in" style="animation-delay:0.30s"><text x="42" y="80" font-size="13">Understand AI code changes one step at a time:</text><text x="42" y="99" font-size="13">a change is split into ordered steps, each</text><text x="42" y="118" font-size="13">showing its own diff and explanation.</text></g>
 <g class="in" style="animation-delay:0.40s"><text x="42" y="142" class="faint" font-size="11">updated 2026-10-20</text></g>
-<path d="M8 160V0M432 0V160" fill="none" stroke="#2a3950"/>
+</g>
+<path d="M8 0V160M432 0V160" fill="none" stroke="#5aaeff" stroke-width="1.2"/>
 </svg>

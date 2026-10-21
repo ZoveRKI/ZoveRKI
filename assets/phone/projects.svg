@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="440" height="60" viewBox="0 0 440 60" role="img" aria-label="Projects">
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="80" viewBox="0 0 440 80" role="img" aria-label="Projects">
 <title>Projects</title>
 <style>
 @font-face{font-family:ZMono;font-weight:400;src:url(data:font/woff2;base64,d09GMgABAAAAAAe0AA8AAAAADqgAAAdcAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGiIbHhwoBmA/U1RBVF4AgRARCAqQYI1gCzoAATYCJANwBCAFhD4HIBvlC6OijJBayP7iwDamNXQRDCCDDIfhaLHIcfX14iT+WBLZf3Y0jLwxsKF4AOMxyjb7V2fNSHaeoy8nS+DdPSBqj7uQc8hFA+S0Bwg9YQdMJfHQb6sf3eg+o0AbGBCw12Ubqy+i8u99ViQPb7f3+wm36ACbtxZYeprkgSfSFiQUxXL9D+CP37ZJy7YGEnuhNgdJ36l/7dfqf7h01RAZEkNMX2xvZxFfRDS5pWuIhkZoJ9ppYt4hJEpj0c0qIl5K8EzvvXtwEGABAKBopJErhjwGEWAE6gmW1TEAsjkA/P8fAE14C52EKUuPcdMngkIYC9HldPlYDhfUVdcBGFpaZqUMAlAQF6Unm0NmAHAWo4X5599tvDNnu0YQ3M8SVFFvg0YyEHkUoEwaoBnhuSenCwD8/WJEkAS1UCnz2SpVFF3C9gGxHS4H1JdKDWEF+KMg+mDM0j/d3L3WKJbGaKSdhIxORMxY40023cInZ9WOba7ygEmm2jX+f/TOI1ttsSH+FeustTkCqgharkYXzqakYwC9zDcD1AvoB4ANAZQUUMPSkwomDSRKKZpO0DnUmMJkSaI6obuifWnxL6zUNrJNK2y8NqiwgeM4zTyv3o5bGHfJQt6TRZ41O8MsBBC5LMqmcht+7R3AcvfdUDaCBRj1s5QGqA19J4LxwWJnOxHB6uoIt3O8kIUrumddgbQqzIlCNdAd2dpkEQIcxDlDjCpbjYOlvFkvG0xk0e6mPXJ3g3pONjU2G7uhgxlR656948DEC1ViBhVGRbhctLNy0ozqEi5UFoZRLYh4i3k3w1AcgTC8lazA3NvIirJMxj9MlYAI8qGGoaWPDJ/MkE/LKTIRQqENOdliy0IWrsCMyLOZN+F4T9iL7fXqOkLy5XQFwQ1FwYqhMsPC0MfIZTQMT8wwDw7u/dgSFPd5M6OR4qNb6YiK8r7HTi/plB9xeFlomHpKxhPGzYRoxORusnNk5gj6GMe7kZPo9tctUHSl4I5njV3WA+h51eC5z1p6VOT0QWwl/UN+zqp5qh7Ia4iUb9S00CUuPrx4lm7eD8C4V69TlkOGFagf7iRRX3iMZGBaTDjMtxNarYEmsV0YTRm0hK6NFw5PiwFRDgyqED++k0B8RAM7z81HhIZQCM0m5Ncon22e7u4iOyBBYyZIw4YMMHCtfwlmJk03PueIrNCsKTEwS852dNGy7+5wZXjrUPMlDoiyyIAC8cOtJOKjGpLG8MFtEPEbhr0GCImtBIQGPUnZ7NiA59rbfKq0HOcs5v7w+MARXOxxK7RUvxUrLxfMPzz7Dx1BETsJElOngTS2E/uuYFLnSKqinhh18I7h+HhfC18DMbNeR9CEH9RmabnWIjvvheIxqL697cvXrXnuApeFsfnc/s7egPUgP/p/T6fqs87WRSeteSMFbrvFERwKgyTrstPUPm7fPn7fu9y7FG7cyQFRDhVG0CAkSDRAiylziMcIkAREg8Wkw7iq2ESYeKaR9zF8XyeorwO13vevFwCee2l6sS16fO681Uc54PW+/+16lV9sImk9YWFxXgC1waiKIoNKlQ9icI7Nee2OkwPNOWQYQX04bzKbTRjF6hGMojA7f/1SN7eMf3o/LzpjShDB1b4IAjYetm1oPh/uftT941X+OOjJGZ3iyXHytv81OAbPYTH+HLp2P+HTt0Vcj/Dn4I7MhuIjIDwxwoamTAbiHCap16UYTWPqw5ud0dfsShFs6DEOa2QxhtGl4nqml3AOMIwgRGgU3ElfVTaef/hq5N8lr+U6peiwATI+R3tQel1G9ci/UKu/lHdLqWVBSW876ydHZyajvSYGQ0US+nhA2tvJjuJaRZ9HhOOMZV20ODvCdauGLhObx6gZHJy43s0w0i9Os7pkQk/j80qyWvN9t9HV3/5qEIbaXoXhxFplbHQ4n2BYJc8+3LTsDmwTKlXnA+mzB+ta3IQblK5b5ssamxQM8ooLQ5mnhlS6x1nd4UR/1vJ+y7isSAL08bLcl5tvqeydYOOS44azl93OGiEXS+H9awZrwU1XhODMbUD8zxhYRt+hY17/q7xqXh0z2CljWIPtVrnuLQDR6pa+hkaupYVrbOjLgbAgHRBTu6EYALLNwfMZBwFqcs4fQFYHkv2+elq/B3h0c+9Gbuzh9U8/exOpkXy5lSqgZYTfBFbFatzesAyBCAVjlWfaDKakkYGXTNKDhrhbsBCmD4PETJ3d0AZ2WE8A9C9BAG8QgMAWnoNiWLDGTMXCeij7OICTfpiRFHg3Ukm4Gqn1szXS0U480lXDERHTRmsiAlbFLOeIHCZVzgYV8bcKpEwyQchEVtOFjJcSMSwmJSFpOpuY6UhThaRMNI3TJBNNIsGJSZhhvJCphsRMNU1K91PNlKSUFBTbs5rNNJpHb0AGc71IhsvH9iZ/IaLSjsnmmPqMAlYsZ7TZwAhiU8BM3aaWaKweR7ZSaAZDyTGeCsLdR9LpJveoniwuTUhpWUhrmFTkvS8ku2Cxsuet7ZEmCvk/CUoZEQ==) format('woff2')}
@@ -16,14 +16,14 @@ svg{font-family:ZMono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 <defs>
-<filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="440" height="60"><feGaussianBlur stdDeviation="5"/></filter>
+<filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="440" height="80"><feGaussianBlur stdDeviation="4"/></filter>
 <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
-<pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="#56647a" fill-opacity=".3"/></pattern>
+<pattern id="grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#5aaeff" stroke-opacity=".06"/></pattern>
 </defs>
-<path d="M8 100V-40M432 -40V100" fill="none" stroke="#5aaeff" stroke-width="2" opacity=".45" filter="url(#glow)"/>
-<path d="M8 0H432V60H8Z" fill="#0a0f17"/>
-<path d="M8 0H432V60H8Z" fill="url(#dots)"/>
+<path d="M8 -40V120M432 -40V120" fill="none" stroke="#5aaeff" stroke-width="3" opacity=".55" filter="url(#glow)"/>
+<rect x="8" y="0" width="424" height="80" fill="#0a0f17"/>
+<rect x="8" y="0" width="424" height="80" fill="url(#grid)"/>
 <g class="in" style="animation-delay:0.10s"><text x="24" y="32"><tspan class="ok" font-weight="700">$</tspan> ls -l ~/projects</text><text x="416" y="32" text-anchor="end" class="faint" font-size="12"># 2 projects</text></g>
 <line x1="24" y1="48" x2="416" y2="48" stroke="#1e2a3b" stroke-dasharray="2 4"/>
-<path d="M8 60V0M432 0V60" fill="none" stroke="#2a3950"/>
+<path d="M8 0V80M432 0V80" fill="none" stroke="#5aaeff" stroke-width="1.2"/>
 </svg>
