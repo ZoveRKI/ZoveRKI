@@ -48,10 +48,12 @@ export type Activity = {
   issues: number;
   pullRequests: number;
   reviews: number;
-  /** 私有仓库里的贡献数，GitHub 只给总数 */
+  /** 令牌看不到的私有贡献数，GitHub 只给总数 */
   restricted: number;
   /** 提交最多的公开仓库 */
   repos: { name: string; url: string; commits: number }[];
+  /** 私有仓库里的提交总数，不含仓库名；需要能读私有仓库的令牌 */
+  privateCommits: number;
 };
 
 export type Snapshot = {
@@ -62,6 +64,8 @@ export type Snapshot = {
   repos: Repo[];
   calendar: Calendar | null;
   activity: Activity | null;
+  /** 私有仓库按语言加总的代码量，不含仓库名；需要能读私有仓库的令牌 */
+  privateLanguages: Language[];
 };
 
 export async function readSnapshot(path = SNAPSHOT_PATH): Promise<Snapshot | null> {
@@ -72,7 +76,11 @@ export async function readSnapshot(path = SNAPSHOT_PATH): Promise<Snapshot | nul
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw e;
   }
-  return JSON.parse(text) as Snapshot;
+  const s = JSON.parse(text) as Snapshot;
+  // 旧版本的数据没有这些字段
+  s.privateLanguages ??= [];
+  if (s.activity) s.activity.privateCommits ??= 0;
+  return s;
 }
 
 export async function writeSnapshot(s: Snapshot, path = SNAPSHOT_PATH): Promise<void> {

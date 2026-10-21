@@ -8,6 +8,7 @@ import { renderPage } from './render.ts';
 const config = resolveConfig({
   login: 'octo',
   tagline: 'A deliberately long tagline for the test, long enough that it has to wrap onto a second line.',
+  stack: ['Rust', 'Go', 'TypeScript', 'Python', 'Ruby'],
   links: [
     { label: 'Blog', url: 'https://example.com', note: 'example.com' },
     { label: 'Mastodon', url: 'https://example.social/@octo' },
@@ -56,7 +57,9 @@ function snapshot(): Snapshot {
       reviews: 0,
       restricted: 2,
       repos: [{ name: 'octo/alpha', url: 'https://github.com/octo/alpha', commits: 280 }],
+      privateCommits: 120,
     },
+    privateLanguages: [{ name: 'Go', color: '#00ADD8', size: 5000 }],
   };
 }
 
@@ -86,6 +89,17 @@ test('切片高度都是 20 的倍数、标签配对，README 引用的图片都
   }
   // 链接按钮排在同一行，图片之间没有空白
   assert.match(readme, /<\/a><a href="https:\/\/example\.social\/@octo">/);
+});
+
+test('私有仓库只显示汇总数字，langs 放不下时只显示前三个', async () => {
+  const page = await renderPage(buildContext(config, snapshot()));
+  const svg = (name: string) => page.files.get(name) ?? '';
+  assert.match(svg('activity.svg'), />\+ 120 commits in private repos</);
+  assert.match(svg('languages.svg'), /bytes of code in public and private repos/);
+  assert.match(svg('languages.svg'), />Go</);
+  // 桌面版的信息栏放不下五种语言，手机版放得下
+  assert.match(svg('header.svg'), />Rust, Go, TypeScript</);
+  assert.match(svg('phone/header.svg'), />Rust, Go, TypeScript, Python, Ruby</);
 });
 
 test('同样的数据生成一模一样的文件', async () => {

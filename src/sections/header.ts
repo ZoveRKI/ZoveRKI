@@ -19,16 +19,33 @@ const CSS = `@keyframes ztype{from{opacity:0}to{opacity:1}}
 
 export const headerAlt = (c: Ctx): string => `${c.config.name}: ${c.config.tagline}`;
 
-/** 信息栏的条目：先是从数据算出来的，再接上配置里的 facts */
-function facts(c: Ctx): [string, string][] {
+/** 信息栏里由数据生成的几项 */
+const KEYS = ['uptime', 'repos', 'langs', 'contrib', 'streak'];
+
+/** langs 一行：配置了 stack 时，放得下就全部显示，放不下只显示前三个；没配置时按代码量取前三 */
+function langs(c: Ctx, fits: (s: string) => boolean): string {
+  const { stack } = c.config;
+  if (stack.length) {
+    const all = stack.join(', ');
+    return fits(all) ? all : stack.slice(0, 3).join(', ');
+  }
+  return c.langs
+    .filter((l) => !l.other)
+    .slice(0, 3)
+    .map((l) => l.name)
+    .join(', ');
+}
+
+/** 信息栏的条目：先是从数据算出来的，再接上配置里的 facts；fits 判断一个值能不能放进一行 */
+function facts(c: Ctx, fits: (s: string) => boolean): [string, string][] {
   const out: [string, string][] = [];
   const u = c.s.user;
   if (u) {
     out.push(['uptime', accountAge(u.createdAt, c.s.asOf)]);
     out.push(['repos', `${num(u.publicRepos)} public${c.stars ? ` · ${plural(c.stars, 'star')}` : ''}`]);
   }
-  const langs = c.langs.filter((l) => !l.other).slice(0, 3);
-  if (langs.length) out.push(['langs', langs.map((l) => l.name).join(', ')]);
+  const l = langs(c, fits);
+  if (l) out.push(['langs', l]);
   if (c.days.length) {
     out.push(['contrib', `${num(c.total)} in the last year`]);
     out.push(['streak', `${plural(c.streak.current, 'day')} · best ${num(c.streak.longest)}`]);
@@ -63,8 +80,12 @@ export async function header(g: Geo, c: Ctx): Promise<string> {
   const tagY = nameY + (g.phone ? 32 : 42);
   const tagEnd = tagY + (tagLines.length - 1) * tagStep;
 
-  const rows = facts(c);
+  // 信息栏：键名一列的宽度按最长的键名算，剩下的是值的宽度
   const infoX = g.phone ? g.left : INFO_X;
+  const keys = [...KEYS, ...c.config.facts.map(([k]) => k)];
+  const keyW = Math.max(...keys.map((k) => textWidth(k, g.small))) + g.small * ADVANCE * 2;
+  const room = g.right - infoX - keyW;
+  const rows = facts(c, (s) => textWidth(s, g.small) <= room);
   const infoY = g.phone ? tagEnd + 44 : whoY;
   const rowStep = g.phone ? 21 : 22;
   const rowsTop = infoY + (g.phone ? 28 : 32);
@@ -77,7 +98,6 @@ export async function header(g: Geo, c: Ctx): Promise<string> {
     .join('');
   const nameW = textWidth(name, nameSize);
   const [user = host, at = ''] = host.split('@');
-  const keyW = Math.max(0, ...rows.map(([k]) => textWidth(k, g.small))) + g.small * ADVANCE * 2;
   const sw = g.phone ? 14 : 16;
 
   const body = `${titleBar(g, `${host}: ~`)}
@@ -95,7 +115,7 @@ export async function header(g: Geo, c: Ctx): Promise<string> {
 ${rows
   .map(
     ([k, v], i) =>
-      `<g class="in" ${delay(1.35 + i * 0.08)}><text x="${infoX}" y="${rowsTop + i * rowStep}" font-size="${g.small}"><tspan class="ac2" font-weight="700">${esc(k)}</tspan><tspan x="${r2(infoX + keyW)}">${esc(truncate(v, g.small, g.right - infoX - keyW))}</tspan></text></g>`,
+      `<g class="in" ${delay(1.35 + i * 0.08)}><text x="${infoX}" y="${rowsTop + i * rowStep}" font-size="${g.small}"><tspan class="ac2" font-weight="700">${esc(k)}</tspan><tspan x="${r2(infoX + keyW)}">${esc(truncate(v, g.small, room))}</tspan></text></g>`,
   )
   .join('\n')}
 <g class="in" ${delay(1.4 + rows.length * 0.08)}>${PALETTE.map((fill, i) => `<rect x="${infoX + i * (sw + 4)}" y="${paletteY}" width="${sw}" height="${g.phone ? 8 : 10}" rx="2" fill="${fill}"/>`).join('')}</g>`;

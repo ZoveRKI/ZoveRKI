@@ -1,6 +1,6 @@
 // 从原始数据算出各板块要显示的数值
 import type { FeaturedProject } from './config.ts';
-import type { Activity, Day, Repo } from './data.ts';
+import type { Activity, Day, Language, Repo } from './data.ts';
 import { readable, weekday } from './svg.ts';
 import { theme as t } from './theme.ts';
 
@@ -40,29 +40,40 @@ export function weekdayTotals(days: Day[]): number[] {
 
 export type Share = { name: string; color: string; size: number; pct: number; other: boolean };
 
+type ShareOpts = {
+  /** 私有仓库按语言加总的代码量 */
+  extra: Language[];
+  exclude: string[];
+  max: number;
+  /** 主页仓库（生成器的代码）不算在内 */
+  profileRepo: string;
+};
+
 /**
- * 各语言的代码量占比。只算自己名下的非 fork 仓库，也不算主页仓库本身（生成器的代码）；
- * 超过 max 种时，排在后面的合并成 Other。
+ * 各语言的代码量占比。算自己名下的非 fork 仓库，公开和私有的合在一起（私有仓库只有按语言加总的数字），
+ * 不算主页仓库本身；超过 max 种时，排在后面的合并成 Other。
  */
-export function languageShares(repos: Repo[], exclude: string[], max: number, profileRepo: string): Share[] {
-  const skip = new Set(exclude.map((s) => s.toLowerCase()));
+export function languageShares(repos: Repo[], o: ShareOpts): Share[] {
+  const skip = new Set(o.exclude.map((s) => s.toLowerCase()));
   const sizes = new Map<string, { size: number; color: string | null }>();
+  const add = (l: Language) => {
+    if (skip.has(l.name.toLowerCase())) return;
+    const cur = sizes.get(l.name) ?? { size: 0, color: l.color };
+    cur.size += l.size;
+    cur.color ??= l.color;
+    sizes.set(l.name, cur);
+  };
   for (const r of repos) {
-    if (r.fork || r.name.toLowerCase() === profileRepo.toLowerCase()) continue;
-    for (const l of r.languages) {
-      if (skip.has(l.name.toLowerCase())) continue;
-      const cur = sizes.get(l.name) ?? { size: 0, color: l.color };
-      cur.size += l.size;
-      cur.color ??= l.color;
-      sizes.set(l.name, cur);
-    }
+    if (r.fork || r.name.toLowerCase() === o.profileRepo.toLowerCase()) continue;
+    r.languages.forEach(add);
   }
+  o.extra.forEach(add);
   const total = [...sizes.values()].reduce((n, v) => n + v.size, 0);
   if (!total) return [];
   const sorted = [...sizes]
     .map(([name, v]) => ({ name, size: v.size, color: readable(v.color ?? t.dim) }))
     .sort((a, b) => b.size - a.size || (a.name < b.name ? -1 : 1));
-  const head = sorted.length > max ? sorted.slice(0, max - 1) : sorted;
+  const head = sorted.length > o.max ? sorted.slice(0, o.max - 1) : sorted;
   const out: Share[] = head.map((l) => ({ ...l, pct: (l.size / total) * 100, other: false }));
   const rest = sorted.slice(head.length).reduce((n, l) => n + l.size, 0);
   if (rest) out.push({ name: 'Other', color: t.faint, size: rest, pct: (rest / total) * 100, other: true });

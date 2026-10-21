@@ -27,6 +27,8 @@ export type ProfileConfig = {
   tagline: string;
   /** 终端标题栏和信息栏里的 user@host，默认是「小写用户名@github」 */
   host?: string;
+  /** 信息栏 langs 一行显示的语言：放得下就全部显示，放不下只显示前三个；不填就按代码量取前三 */
+  stack?: string[];
   /** 头部信息栏里额外显示的条目，比如 ['editor', 'VS Code'] */
   facts?: [string, string][];
   /** 头部下面的一排链接按钮，不填就不显示 */
@@ -50,6 +52,7 @@ export type Config = {
   name: string;
   tagline: string;
   host: string;
+  stack: string[];
   facts: [string, string][];
   links: Link[];
   projects: FeaturedProject[];
@@ -64,6 +67,7 @@ export function resolveConfig(c: ProfileConfig): Config {
     name: c.name ?? c.login,
     tagline: c.tagline,
     host: c.host ?? `${c.login.toLowerCase()}@github`,
+    stack: c.stack ?? [],
     facts: c.facts ?? [],
     links: c.links ?? [],
     projects: c.projects ?? [],

@@ -25,13 +25,15 @@ const saved = await readSnapshot();
 // 换了用户名时，旧数据不能再用
 const prev = saved?.login === login ? saved : null;
 const token = githubToken();
-if (!token) console.log('没有 token：改用公开接口抓取，活动概览沿用上一次的数据');
+console.log(token ? `使用 ${token.name}` : '没有 token：改用公开接口抓取，活动概览和私有仓库的统计沿用上一次的数据');
 
-const gql = token ? await attempt('GraphQL 数据', () => fetchGraphql(login, token)) : null;
-const user = gql?.user ?? (await attempt('用户信息', () => fetchRestUser(login, token))) ?? prev?.user ?? null;
-const repos = gql?.repos ?? (await attempt('仓库列表', () => fetchRestRepos(login, token))) ?? prev?.repos ?? [];
+const auth = token?.value ?? null;
+const gql = token ? await attempt('GraphQL 数据', () => fetchGraphql(login, token.value)) : null;
+const user = gql?.user ?? (await attempt('用户信息', () => fetchRestUser(login, auth))) ?? prev?.user ?? null;
+const repos = gql?.repos ?? (await attempt('仓库列表', () => fetchRestRepos(login, auth))) ?? prev?.repos ?? [];
 const calendar = gql?.calendar ?? (await attempt('贡献日历', () => fetchCalendarPage(login))) ?? prev?.calendar ?? null;
 const activity = gql?.activity ?? prev?.activity ?? null;
+const privateLanguages = gql?.privateLanguages ?? prev?.privateLanguages ?? [];
 
 if (!user && !calendar) {
   console.error('用户信息和贡献日历都没有拿到，也没有上一次的数据，无法生成主页');
@@ -45,9 +47,14 @@ const snapshot: Snapshot = {
   repos,
   calendar,
   activity,
+  privateLanguages,
 };
 await writeSnapshot(snapshot);
 
 const range = calendar ? `${calendar.total} 次（${calendar.days[0]?.date} ~ ${snapshot.asOf}）` : '无';
 const overview = activity ? (gql ? '已更新' : '沿用上一次的数据') : '无（需要 token）';
-console.log(`已写入 ${SNAPSHOT_PATH}：仓库 ${repos.length} 个，贡献 ${range}，活动概览${overview}`);
+console.log(`已写入 ${SNAPSHOT_PATH}：公开仓库 ${repos.length} 个，贡献 ${range}，活动概览${overview}`);
+// 只打印数量，私有仓库的名字不出现在日志里
+console.log(
+  `私有仓库：提交 ${activity?.privateCommits ?? 0} 次，语言 ${privateLanguages.length} 种；令牌看不到的私有贡献 ${activity?.restricted ?? 0} 次`,
+);

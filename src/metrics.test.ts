@@ -52,19 +52,28 @@ test('语言占比不算 fork 和主页仓库，超出数量的合并成 Other',
     repo('octo', [['TypeScript', 10_000]]),
     repo('tool', [['Python', 20]]),
   ];
-  const shares = languageShares(repos, ['html'], 3, 'Octo');
-  assert.deepEqual(
-    shares.map((s) => [s.name, Math.round(s.pct * 10) / 10, s.other]),
-    [
-      ['Rust', 61.9, false],
-      ['TypeScript', 30.9, false],
-      ['Other', 7.2, true],
-    ],
-  );
+  const opts = { extra: [], exclude: ['html'], max: 3, profileRepo: 'Octo' };
+  const round = (s: { name: string; pct: number; other: boolean }) => [s.name, Math.round(s.pct * 10) / 10, s.other];
+  assert.deepEqual(languageShares(repos, opts).map(round), [
+    ['Rust', 61.9, false],
+    ['TypeScript', 30.9, false],
+    ['Other', 7.2, true],
+  ]);
+  // 私有仓库按语言加总的数字合并进同一份统计
+  const extra = [
+    { name: 'Go', color: null, size: 30 },
+    { name: 'Rust', color: null, size: 30 },
+  ];
+  assert.deepEqual(languageShares(repos, { ...opts, extra }).map(round), [
+    ['Rust', 61.2, false],
+    ['TypeScript', 29.1, false],
+    ['Other', 9.7, true],
+  ]);
 });
 
 test('活动概览按四项的总和算百分比', () => {
-  const items = overview({ commits: 77, issues: 10, pullRequests: 11, reviews: 2, restricted: 0, repos: [] });
+  const base = { restricted: 0, repos: [], privateCommits: 0 };
+  const items = overview({ ...base, commits: 77, issues: 10, pullRequests: 11, reviews: 2 });
   assert.deepEqual(
     items?.map((i) => [i.key, i.pct]),
     [
@@ -74,7 +83,7 @@ test('活动概览按四项的总和算百分比', () => {
       ['prs', 11],
     ],
   );
-  assert.equal(overview({ commits: 0, issues: 0, pullRequests: 0, reviews: 0, restricted: 3, repos: [] }), null);
+  assert.equal(overview({ ...base, commits: 0, issues: 0, pullRequests: 0, reviews: 0, restricted: 3 }), null);
 });
 
 test('账号注册时长', () => {

@@ -4,9 +4,13 @@ import type { Activity, Calendar, Day, Language, Level, Repo, User } from './dat
 const API = 'https://api.github.com';
 const UA = 'zoverki-profile-generator';
 
-/** 优先用能看到更多数据的 PROFILE_TOKEN，其次是 Actions 自带的 GITHUB_TOKEN */
-export function githubToken(): string | null {
-  return process.env.PROFILE_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN || null;
+/** 优先用能看到更多数据的 PROFILE_TOKEN，其次是 Actions 自带的 GITHUB_TOKEN；name 是环境变量名，用于日志 */
+export function githubToken(): { name: string; value: string } | null {
+  for (const name of ['PROFILE_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN']) {
+    const value = process.env[name];
+    if (value) return { name, value };
+  }
+  return null;
 }
 
 type RequestOpts = { token?: string | null; body?: unknown; accept?: string };
@@ -96,13 +100,18 @@ const QUERY = `query ($login: String!) {
         languages(first: 20, orderBy: { field: SIZE, direction: DESC }) { edges { size node { name color } } }
       }
     }
+    privateRepos: repositories(ownerAffiliations: OWNER, privacy: PRIVATE, isFork: false, first: 100) {
+      nodes {
+        languages(first: 20, orderBy: { field: SIZE, direction: DESC }) { edges { size node { name color } } }
+      }
+    }
     contributionsCollection {
       totalCommitContributions
       totalIssueContributions
       totalPullRequestContributions
       totalPullRequestReviewContributions
       restrictedContributionsCount
-      commitContributionsByRepository(maxRepositories: 10) {
+      commitContributionsByRepository(maxRepositories: 100) {
         repository { nameWithOwner url isPrivate }
         contributions { totalCount }
       }
@@ -113,6 +122,8 @@ const QUERY = `query ($login: String!) {
     }
   }
 }`;
+
+type GqlLanguages = { edges: { size: number; node: { name: string; color: string | null } }[] };
 
 type GqlRepo = {
   name: string;
@@ -128,7 +139,7 @@ type GqlRepo = {
   licenseInfo: { spdxId: string | null } | null;
   primaryLanguage: { name: string } | null;
   repositoryTopics: { nodes: { topic: { name: string } }[] };
-  languages: { edges: { size: number; node: { name: string; color: string | null } }[] };
+  languages: GqlLanguages;
 };
 
 type GqlUser = {
@@ -138,6 +149,7 @@ type GqlUser = {
   followers: { totalCount: number };
   following: { totalCount: number };
   repositories: { totalCount: number; nodes: GqlRepo[] };
+  privateRepos: { nodes: { languages: GqlLanguages }[] };
   contributionsCollection: {
     totalCommitContributions: number;
     totalIssueContributions: number;
@@ -155,7 +167,26 @@ type GqlUser = {
   };
 };
 
-export type GraphqlResult = { user: User; repos: Repo[]; calendar: Calendar; activity: Activity };
+export type GraphqlResult = {
+  user: User;
+  repos: Repo[];
+  calendar: Calendar;
+  activity: Activity;
+  privateLanguages: Language[];
+};
+
+/** 把多个仓库的语言统计按语言加总，只留总数 */
+function sumLanguages(list: GqlLanguages[]): Language[] {
+  const sizes = new Map<string, Language>();
+  for (const l of list) {
+    for (const e of l.edges) {
+      const cur = sizes.get(e.node.name) ?? { name: e.node.name, color: e.node.color, size: 0 };
+      cur.size += e.size;
+      sizes.set(e.node.name, cur);
+    }
+  }
+  return [...sizes.values()].sort((a, b) => b.size - a.size || (a.name < b.name ? -1 : 1));
+}
 
 /** 用一次 GraphQL 查询拿到用户、仓库、贡献日历和活动细分 */
 export async function fetchGraphql(login: string, token: string): Promise<GraphqlResult> {
@@ -165,6 +196,7 @@ export async function fetchGraphql(login: string, token: string): Promise<Graphq
   const u = json.data?.user;
   if (!u) throw new Error(`找不到用户 ${login}`);
   const cc = u.contributionsCollection;
+  const byRepo = cc.commitContributionsByRepository;
   return {
     user: {
       name: u.name,
@@ -186,7 +218,7 @@ export async function fetchGraphql(login: string, token: string): Promise<Graphq
       license: license(r.licenseInfo?.spdxId),
       topics: r.repositoryTopics.nodes.map((n) => n.topic.name),
       language: r.primaryLanguage?.name ?? null,
-      languages: r.languages.edges.map((e) => ({ name: e.node.name, color: e.node.color, size: e.size })),
+      languages: sumLanguages([r.languages]),
       pushedAt: r.pushedAt ?? r.createdAt,
       createdAt: r.createdAt,
     })),
@@ -202,11 +234,16 @@ export async function fetchGraphql(login: string, token: string): Promise<Graphq
       pullRequests: cc.totalPullRequestContributions,
       reviews: cc.totalPullRequestReviewContributions,
       restricted: cc.restrictedContributionsCount,
-      // 私有仓库的名字不能出现在公开的主页上
-      repos: cc.commitContributionsByRepository
+      // 私有仓库的名字不能出现在公开的主页上，只记提交总数
+      repos: byRepo
         .filter((r) => !r.repository.isPrivate)
+        .slice(0, 10)
         .map((r) => ({ name: r.repository.nameWithOwner, url: r.repository.url, commits: r.contributions.totalCount })),
+      privateCommits: byRepo
+        .filter((r) => r.repository.isPrivate)
+        .reduce((n, r) => n + r.contributions.totalCount, 0),
     },
+    privateLanguages: sumLanguages(u.privateRepos.nodes.map((r) => r.languages)),
   };
 }
 

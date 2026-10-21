@@ -32,6 +32,8 @@ export type Ctx = {
   /** 活动概览，没有 GraphQL 数据时是 null */
   overview: OverviewItem[] | null;
   topRepos: TopRepo[];
+  /** 私有仓库里的提交总数 */
+  privateCommits: number;
   projects: Project[];
   /** 自己名下非 fork 仓库的 star 总数 */
   stars: number;
@@ -48,9 +50,15 @@ export function buildContext(config: Config, s: Snapshot): Ctx {
     streak: streaks(days),
     best: bestDay(days),
     weekdays: weekdayTotals(days),
-    langs: languageShares(s.repos, config.languages.exclude, config.languages.max, config.login),
+    langs: languageShares(s.repos, {
+      extra: s.privateLanguages,
+      exclude: config.languages.exclude,
+      max: config.languages.max,
+      profileRepo: config.login,
+    }),
     overview: s.activity ? overview(s.activity) : null,
     topRepos: s.activity?.repos ?? [],
+    privateCommits: s.activity?.privateCommits ?? 0,
     projects: pickProjects(s.repos, config.projects, config.login),
     stars: s.repos.filter((r) => !r.fork).reduce((n, r) => n + r.stars, 0),
   };

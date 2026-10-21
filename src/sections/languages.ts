@@ -6,8 +6,11 @@ import { type Geo, theme as t, up } from '../theme.ts';
 
 const pct = (p: number): string => `${p.toFixed(1)}%`;
 
+/** 统计范围：有私有仓库的数据时，公开和私有的合在一起算 */
+const scope = (c: Ctx): string => (c.s.privateLanguages.length ? 'public and private repos' : 'public repos');
+
 export const languagesAlt = (c: Ctx): string =>
-  `Languages by bytes of code: ${c.langs.map((l) => `${l.name} ${pct(l.pct)}`).join(', ')}.`;
+  `Languages by bytes of code in ${scope(c)}: ${c.langs.map((l) => `${l.name} ${pct(l.pct)}`).join(', ')}.`;
 
 export async function languages(g: Geo, c: Ctx): Promise<string> {
   const W = g.right - g.left;
@@ -41,7 +44,7 @@ export async function languages(g: Geo, c: Ctx): Promise<string> {
   const rows = Math.ceil(c.langs.length / cols);
   const h = up(legendY + (rows - 1) * rowStep + (g.phone ? 26 : 30));
 
-  const body = `${sectionTop(g, 'linguist --breakdown', '# bytes of code in public repos')}
+  const body = `${sectionTop(g, 'linguist --breakdown', `# bytes of code in ${scope(c)}`)}
 <rect x="${g.left}" y="${barY}" width="${W}" height="${barH}" rx="${barH / 2}" fill="${t.panel}"/>
 <g clip-path="url(#bar)">${segments}</g>
 ${items}`;

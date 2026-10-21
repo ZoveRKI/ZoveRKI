@@ -1,9 +1,15 @@
 // 主页生成器的配置。改完运行 `pnpm readme` 在本地重新生成；推送后 GitHub Actions 也会重新生成。
 import type { ProfileConfig } from './src/config.ts';
 
+// 常用的编程语言：大标题下面的简介和信息栏的 langs 一行都用它
+const stack = ['Rust', 'Go', 'TypeScript', 'Python', 'Ruby'];
+
 export default {
   login: 'ZoveRKI',
-  tagline: 'Rust · TypeScript · Python — building OneByOne, one step at a time.',
+  host: 'ZoveRKI@github',
+  // 之前的简介：Rust · TypeScript · Python — building OneByOne, one step at a time.
+  tagline: stack.join(' · '),
+  stack,
 
   projects: [
     {
