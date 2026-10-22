@@ -45,6 +45,9 @@ const TRAITS: Record<Weather, Traits> = {
   storm: { clouds: 4, stars: 0, light: 0, gray: 0.75 },
 };
 
+/** 天气让颜色变灰多少，城市周围的景物也按它上色 */
+export const weatherGray = (w: Weather | null): number => TRAITS[w ?? 'clear'].gray;
+
 /** 星星能出现在多高的地方（占星空高度的比例）：夜里满天，黎明和黄昏只剩高处，白天没有 */
 const STAR_REACH: Record<Phase, number> = { night: 1, dawn: 0.35, day: 0, dusk: 0.45 };
 
@@ -83,7 +86,7 @@ const CLOUD: Record<Phase, [rim: string, fill: string]> = {
 };
 
 /** 坏天气把颜色往这个灰色拉 */
-const GRAY = '#7d8798';
+export const GRAY = '#7d8798';
 
 /** 时段的颜色，用在城市下面那行字里 */
 const PHASE_COLOR: Record<Phase, string> = { night: S.moon, dawn: S.dawn, day: S.sun, dusk: S.dusk };

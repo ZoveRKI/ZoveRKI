@@ -211,6 +211,19 @@ test('每种时段和天气都能画出来，各有各的效果；没有配置�
   assert.doesNotMatch(plain, /sunrise|sunset/);
 });
 
+test('城市背后有山和树，前面有海、滨海路、来回的车和船；天黑或天气不好时车灯和路灯亮着', async () => {
+  const draw = (phase: Sky['phase'], weather: Sky['weather']) =>
+    contributions(DESKTOP, buildContext(config, { ...snapshot(), sky: { phase, event: 'sunrise', at: '05:51 JST', weather } }));
+  const night = await draw('night', 'clear');
+  for (const c of ['ca', 'cb', 'boat', 'bob', 'w0']) assert.match(night, new RegExp(`class="${c}"`), c);
+  assert.match(night, /fill="url\(#seaglow\)"/);
+  assert.match(night, /fill="url\(#lampglow\)"/);
+  assert.match(night, /fill="url\(#beam\)"/);
+  // 晴天的白天不开灯，下雨的白天开灯
+  assert.doesNotMatch(await draw('day', 'clear'), /url\(#lampglow\)|url\(#beam\)/);
+  assert.match(await draw('day', 'rain'), /fill="url\(#lampglow\)"/);
+});
+
 test('没有日历和活动数据时跳过对应板块', async () => {
   const page = await renderPage(buildContext(config, { ...snapshot(), calendar: null, activity: null }));
   assert.ok(!page.files.has('contributions.svg'));

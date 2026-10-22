@@ -1,11 +1,12 @@
 // 贡献城市：过去一年每天一栋楼。每周一排，从左上往右下排，越往右下越新；一周七天从右上往左下排。
 // 楼高按当天贡献数的平方根算，最忙的一天不会把其他楼压得看不见；楼顶的颜色是 GitHub 的贡献等级。
-// 楼和窗户照着 Giorgi Kobaidze 的设计实现（见 NOTICE），天空和天气见 scene.ts。
+// 楼和窗户照着 Giorgi Kobaidze 的设计实现（见 NOTICE）；天空和天气见 scene.ts，周围的树、海、路、车和船见 landscape.ts。
 import type { Ctx } from '../context.ts';
 import type { Day, Phase } from '../data.ts';
 import { sectionTop, slice } from '../frame.ts';
 import { daysBetween, delay, esc, mix, MONTHS, monthDay, num, plural, r2, random, textWidth, weekday } from '../svg.ts';
 import { type Geo, theme as t, up } from '../theme.ts';
+import { landscape, ROAD } from './landscape.ts';
 import { scene, skyAlt, skyText, type Stage } from './scene.ts';
 
 /** 等距投影：一格宽 tw、高 tw/2；楼最高 H；gap 是楼与楼之间的空隙占一格的比例；win 是窗户的缩放 */
@@ -27,7 +28,7 @@ const CSS = `@keyframes zfl{0%,40%,100%{opacity:1}45%,60%{opacity:.1}}
 .beacon{animation:zbeacon 2.4s ease-in-out infinite}`;
 
 export const contributionsAlt = (c: Ctx): string =>
-  `${num(c.total)} contributions in the last year, drawn as a city with one building per day${skyAlt(c.sky)}. Current streak ${plural(c.streak.current, 'day')}, longest ${plural(c.streak.longest, 'day')}.`;
+  `${num(c.total)} contributions in the last year, drawn as a seaside city with one building per day${skyAlt(c.sky)}. Current streak ${plural(c.streak.current, 'day')}, longest ${plural(c.streak.longest, 'day')}.`;
 
 type Cell = { d: Day; X: number; Z: number };
 type Pt = [number, number];
@@ -146,8 +147,23 @@ function windows(
   return paths.map(([d, fill]) => (d.length ? `<path d="${d.join('')}" fill="${fill}"/>` : '')).join('') + flickers.join('');
 }
 
-/** 城市本体；top 是最高的楼能到的位置。返回标记、最下面的位置和地面后方的轮廓（左角、最远的角、右角） */
-function city(g: Geo, c: Ctx, top: number): { markup: string; bottom: number; horizon: Pt[] } {
+/**
+ * 城市本体；top 是最高的楼能到的位置。返回分开画的几层（地块、楼、文字）、最下面的位置、
+ * 地面后方的轮廓（左角、最远的角、右角），以及给周围景物用的投影和周数
+ */
+function city(
+  g: Geo,
+  c: Ctx,
+  top: number,
+): {
+  tiles: string;
+  blocks: string;
+  labels: string;
+  bottom: number;
+  horizon: Pt[];
+  xy: (u: number, v: number, z?: number) => Pt;
+  weeks: number;
+} {
   const { tw, H, gap, win } = g.phone ? PHONE_PROJ : DESKTOP_PROJ;
   const p = c.sky?.phase ?? 'night';
   const F = facade(p);
@@ -189,9 +205,9 @@ function city(g: Geo, c: Ctx, top: number): { markup: string; bottom: number; ho
     blocks.push(`<g class="rise" ${delay(0.2 + X * 0.022)}>${shapes}</g>`);
   }
 
-  // 地面靠近观众的两条边画成发光的线
-  const edge = `M${pt(xy(0, 7))}L${pt(xy(weeks, 7))}L${pt(xy(weeks, 0))}`;
-  // 月份写在左下那条边的外面，星期写在右下那条边的外面
+  // 地面靠近观众的两条边画成发光的线：左下那条是海岸线（见 landscape.ts），这里画右下那条
+  const edge = `M${pt(xy(weeks, 7))}L${pt(xy(weeks, 0))}`;
+  // 月份写在海岸线外面，星期写在右下那条边的外面
   const size = g.small - 2;
   const months: string[] = [];
   let lastX = -99;
@@ -199,7 +215,7 @@ function city(g: Geo, c: Ctx, top: number): { markup: string; bottom: number; ho
     if (!d.date.endsWith('-01') || X - lastX < (g.phone ? 7 : 3)) continue;
     lastX = X;
     const name = MONTHS[Number(d.date.slice(5, 7)) - 1] ?? '';
-    const [x, y] = xy(X + 0.5, 7);
+    const [x, y] = xy(X + 0.5, ROAD.coast + 0.15);
     // 最左边的月份放不下时往右挪，不压到窗口的边框
     const end = Math.max(x - 3, g.left + textWidth(name, size));
     months.push(
@@ -213,12 +229,17 @@ function city(g: Geo, c: Ctx, top: number): { markup: string; bottom: number; ho
         return `<text x="${r2(x + 7)}" y="${r2(y + size - 1)}" class="faint" font-size="${size}">${s}</text>`;
       }).join('');
 
-  const markup = `<g fill="${t.panel}">${ground.join('')}</g>
+  return {
+    tiles: `<g fill="${t.panel}">${ground.join('')}</g>
 <path d="${edge}" fill="none" stroke="${t.accent}" stroke-width="3" opacity=".3" filter="url(#soft)"/>
-<path d="${edge}" fill="none" stroke="${t.accent}" stroke-opacity=".45"/>
-${blocks.join('\n')}
-<g class="in" ${delay(0.6)}>${months.join('')}${weekdays}</g>`;
-  return { markup, bottom: r2(xy(weeks, 7)[1] + size + 4), horizon: [xy(0, 7), xy(0, 0), xy(weeks, 0)] };
+<path d="${edge}" fill="none" stroke="${t.accent}" stroke-opacity=".45"/>`,
+    blocks: blocks.join('\n'),
+    labels: `<g class="in" ${delay(0.6)}>${months.join('')}${weekdays}</g>`,
+    bottom: r2(xy(weeks, ROAD.coast + 0.15)[1] + size + 4),
+    horizon: [xy(0, 7), xy(0, 0), xy(weeks, 0)],
+    xy,
+    weeks,
+  };
 }
 
 /** 底部：日期范围、颜色图例，以及天色、天气和日出日落时间（手机版天色单独一行）；返回标记和最后一行的位置 */
@@ -290,13 +311,28 @@ export async function contributions(g: Geo, c: Ctx): Promise<string> {
         stars: { x0: g.left + 180, x1: g.x1, y0: top, y1: top + 190, n: 50 },
       };
   const sky = scene(c.sky, stage);
+  const tw = (g.phone ? PHONE_PROJ : DESKTOP_PROJ).tw;
+  const land = landscape(
+    { xy: town.xy, weeks: town.weeks, k: tw / DESKTOP_PROJ.tw, x0: stage.x0, x1: stage.x1, y0: stage.y0, y1: stage.y1 },
+    c.sky,
+  );
   const [foot, footY] = legend(g, c, Math.round(town.bottom + (g.phone ? 20 : 24)));
   const h = up(footY + (g.phone ? 16 : 22));
+  // 从后往前：天空、背后的草地和树、海和路、地块、楼、车和船、文字，最后是楼前面的雨雪和雾
   const body = `${sectionTop(g, 'skyline --last 1year', '# one building per day')}
 ${head}
 ${sky.back}
-${town.markup}
+${land.behind}
+${land.coast}
+${town.tiles}
+${town.blocks}
+${land.traffic}
+${town.labels}
 ${sky.front}
 ${foot}`;
-  return slice(g, h, body, { title: contributionsAlt(c), css: `${CSS}\n${sky.css}`, defs: sky.defs });
+  return slice(g, h, body, {
+    title: contributionsAlt(c),
+    css: `${CSS}\n${sky.css}\n${land.css}`,
+    defs: `${sky.defs}\n${land.defs}`,
+  });
 }

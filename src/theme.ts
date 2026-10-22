@@ -30,6 +30,26 @@ export const theme = {
     winOff: '#172038',
     beacon: '#ff6b81',
   },
+  /**
+   * 贡献城市周围的景物（夜里的颜色）：近岸和远处的海、浪花、路面、路中间的虚线、路灯的光、
+   * 背后的草地、草、花、树冠的亮面和暗面、树干，以及船身、甲板和船舱
+   */
+  land: {
+    seaNear: '#10243b',
+    seaFar: '#0a1524',
+    wave: '#8ec5ff',
+    road: '#121a26',
+    roadLine: '#3a4a63',
+    lamp: '#ffd59a',
+    park: '#0e1b1f',
+    grass: '#3f7a5f',
+    flowers: ['#ff8fbf', '#f5c26b', '#e6edf3', '#b48cff'],
+    tree: ['#22524b', '#15352f'],
+    trunk: '#3b3229',
+    hull: '#1c2738',
+    deck: '#2a3950',
+    cabin: '#c9d4e4',
+  },
   /** 贡献城市上空：黎明的粉、白天的蓝、黄昏的橙、早晚高处的紫，以及太阳、月亮和星星 */
   sky: {
     dawn: '#ff8fbf',
