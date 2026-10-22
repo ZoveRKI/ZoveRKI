@@ -244,15 +244,60 @@ test('临海景物从远到近遮挡，汽车不能盖过路灯、站棚，接�
   }
 });
 
-test('飞机的整个航程位于统计下方、高架上方的天空通道，桌面和手机入场都不钻桥', async () => {
+test('两架飞机从画外沿不同曲线进入，完整循环避开彼此、统计、高架和游乐园，保留红白闪灯', async () => {
   for (const g of [DESKTOP, PHONE]) {
     const svg = await contributions(g, buildContext(config, snapshot()));
     const k = g.phone ? 0.6 : 1;
-    const y = Number(svg.match(/class="plane"><g transform="translate\(-30 ([\d.]+)\)"/)?.[1]);
-    const rise = -Number(svg.match(/@keyframes zfly\{.*?to\{transform:translate\([^,]+,([-\d.]+)px\)/)?.[1]);
+    assert.equal([...svg.matchAll(/class="plane"/g)].length, 2);
+    assert.match(svg, /\.blip\{animation:zblip 1.4s infinite\}/);
+    assert.equal([...svg.matchAll(/fill="#f0f6fc" style="animation-delay:.7s"/g)].length, 2);
+    const routes = [0, 1].map(id => {
+      const css = svg.match(new RegExp(`@keyframes zflight${id}\\{(.*?)\\n`))?.[1] ?? '';
+      const frames = [...css.matchAll(/([\d.]+)%\{transform:translate\(([-\d.]+)px,([-\d.]+)px\) rotate\(([-\d.]+)deg\)/g)]
+        .map(([, time, x, y, angle]) => ({ time: Number(time) * 48 / 100, x: Number(x), y: Number(y), angle: Number(angle) }));
+      assert.equal(frames.length, 50);
+      const first = frames[0]!;
+      const last = frames.at(-1)!;
+      for (const p of [first, last]) assert.ok(p.x + 16 * k < g.x0 || p.x - 16 * k > g.x1, '飞机没有完整退出画面');
+      return frames;
+    });
+    assert.ok(routes[1]![0]!.x > g.x1 && routes[1]!.at(-1)!.x < g.x0, '新飞机没有从右侧飞向左上');
+    const start = routes[1]![0]!;
+    const end = routes[1]!.at(-1)!;
+    const middle = routes[1]![24]!;
+    const deviation = Math.abs((end.x - start.x) * (middle.y - start.y) - (end.y - start.y) * (middle.x - start.x)) / Math.hypot(end.x - start.x, end.y - start.y);
+    assert.ok(deviation > 20 * k, '新航线没有明显的弯曲');
+
+    const at = (frames: typeof routes[number], time: number) => {
+      const i = Math.max(1, frames.findIndex(frame => frame.time >= time));
+      const a = frames[i - 1]!;
+      const b = frames[i]!;
+      const f = (time - a.time) / (b.time - a.time);
+      const p = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, angle: (a.angle + (b.angle - a.angle) * f) * Math.PI / 180 };
+      // 包含机翼、机头和灯光的旋转包围盒。
+      const dx = (13.6 * Math.abs(Math.cos(p.angle)) + 5.2 * Math.abs(Math.sin(p.angle))) * k;
+      const dy = (13.6 * Math.abs(Math.sin(p.angle)) + 5.2 * Math.abs(Math.cos(p.angle))) * k;
+      return { ...p, dx, dy, visible: p.x + dx > g.x0 && p.x - dx < g.x1 };
+    };
     const landY = Number(svg.match(/<mask id="land"[^>]* y="([\d.]+)"/)?.[1]);
     const statY = Math.max(...[...svg.matchAll(/<text\b[^>]* y="([\d.]+)"[^>]*>(?:active days|current streak|longest streak|best ·[^<]+)<\/text>/g)].map(([, v]) => Number(v)));
-    assert.ok(y - rise - 1.6 * k > statY + 2 * k, '飞机进入了统计文字区域');
-    assert.ok(y + 2.6 * k < landY - 4 * k, '飞机入场位置与高架重叠');
+    const wheel = svg.match(/<ellipse cx="([-\d.]+)" cy="([-\d.]+)"/);
+    assert.ok(wheel);
+    const railK = g.phone ? 13 / 24 : 1;
+    const intercept = Number(wheel[2]) - Number(wheel[1]) / 2 - .27 * 12 * railK + .8 * railK;
+    const rides = [...svg.matchAll(/data-airspace="([^"]+)"/g)].map(([, bounds = '']) => bounds.split(',').map(Number));
+    assert.equal(rides.length, 2);
+    for (let time = 0; time <= 48; time += .05) {
+      const aircraft = routes.map(route => at(route, time));
+      for (const p of aircraft.filter(p => p.visible)) {
+        assert.ok(p.y - p.dy > statY + k, '飞机进入了统计文字区域');
+        const railY = Math.max(landY, (p.x - p.dx) / 2 + intercept);
+        assert.ok(p.y + p.dy < railY - 2 * k, '飞机穿过高架');
+        for (const [x0, y0, x1, y1] of rides) {
+          assert.ok(p.x + p.dx < x0! - 2 * k || p.x - p.dx > x1! + 2 * k || p.y + p.dy < y0! - 2 * k || p.y - p.dy > y1! + 2 * k, '飞机与游乐园设施运动包络相撞');
+        }
+      }
+      if (aircraft.every(p => p.visible)) assert.ok(Math.hypot(aircraft[0]!.x - aircraft[1]!.x, aircraft[0]!.y - aircraft[1]!.y) > 34 * k, '两架飞机相撞');
+    }
   }
 });

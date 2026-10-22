@@ -24,6 +24,8 @@ export type Iso = {
   x1: number;
   y0: number;
   y1: number;
+  /** 原来的海岸画幅底边；扩展轨道空间时按它维持汽车、船原有的行驶速度。 */
+  referenceY1?: number;
 };
 
 /** 城市前面（v 大于 7）的滨海路：路面的内外两边，往右下和往左上的两条车道，以及海岸线 */
@@ -235,6 +237,10 @@ function car(iso: Iso, u: number, v: number, color: string, ahead: boolean, ligh
 /** 一条车道上的几辆车：从画外开始，用非负延迟错开入场；缓冲区也要容纳完整车灯光束 */
 function lane(iso: Iso, G: Grid, P: Painter, v: number, ahead: boolean, seconds: number, cls: string, next: () => number): { svg: string; css: string } {
   const [ua, ub] = G.span(v);
+  if (iso.referenceY1 !== undefined) {
+    const [a, b] = grid({ ...iso, y1: iso.referenceY1 }).span(v);
+    seconds = r2(seconds * (ub - ua + 6) / (b - a + 6));
+  }
   const [from, to] = ahead ? [ua - 3, ub + 3] : [ub + 3, ua - 3];
   const n = 3;
   const cars = Array.from({ length: n }, (_, i) => {

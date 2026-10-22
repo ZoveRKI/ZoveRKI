@@ -8,6 +8,7 @@ import { daysBetween, delay, esc, mix, MONTHS, monthDay, num, plural, r2, random
 import { type Geo, theme as t, up } from '../theme.ts';
 import { landscape, ROAD } from './landscape.ts';
 import { scene, skyAlt, skyText, type Stage } from './scene.ts';
+import { RAIL } from './transport.ts';
 
 /** 等距投影：一格宽 tw、高 tw/2；楼最高 H；gap 是楼与楼之间的空隙占一格的比例；win 是窗户的缩放 */
 type Proj = { tw: number; H: number; gap: number; win: number };
@@ -28,7 +29,7 @@ const CSS = `@keyframes zfl{0%,40%,100%{opacity:1}45%,60%{opacity:.1}}
 .beacon{animation:zbeacon 2.4s ease-in-out infinite}`;
 
 export const contributionsAlt = (c: Ctx): string =>
-  `${num(c.total)} contributions in the last year, drawn as a seaside city with one building per day${skyAlt(c.sky)}, with boats, a high-speed train and a seaside tram. Current streak ${plural(c.streak.current, 'day')}, longest ${plural(c.streak.longest, 'day')}.`;
+  `${num(c.total)} contributions in the last year, drawn as a seaside city with one building per day${skyAlt(c.sky)}, with boats, two aircraft, a high-speed train, a seaside tram, a restaurant, a pavilion and an amusement park. Current streak ${plural(c.streak.current, 'day')}, longest ${plural(c.streak.longest, 'day')}.`;
 
 type Cell = { d: Day; X: number; Z: number };
 type Pt = [number, number];
@@ -313,11 +314,15 @@ export async function contributions(g: Geo, c: Ctx): Promise<string> {
       };
   const tw = (g.phone ? PHONE_PROJ : DESKTOP_PROJ).tw;
   // 为城市右端的海滨广场和栈桥留出纵向空间，底部图例一起下移。
-  const bottom = town.bottom + 32 * (tw / DESKTOP_PROJ.tw);
+  // 滨海轨道一直铺到右边框，给列车出场与右端亭子留出空间，底部图例也随之下移。
+  const unit = tw / 2;
+  const origin = town.xy(0, 0);
+  const railRight = town.xy((stage.x1 - origin[0]) / unit + RAIL.tram, RAIL.tram)[1];
+  const bottom = Math.max(town.bottom + 32 * (tw / DESKTOP_PROJ.tw), railRight + 36 * (tw / DESKTOP_PROJ.tw));
   stage.y1 = bottom;
   const sky = scene(c.sky, stage);
   const land = landscape(
-    { xy: town.xy, weeks: town.weeks, k: tw / DESKTOP_PROJ.tw, x0: stage.x0, x1: stage.x1, y0: stage.y0, y1: stage.y1 },
+    { xy: town.xy, weeks: town.weeks, k: tw / DESKTOP_PROJ.tw, x0: stage.x0, x1: stage.x1, y0: stage.y0, y1: stage.y1, referenceY1: town.bottom + 32 * (tw / DESKTOP_PROJ.tw) },
     c.sky,
   );
   const [foot, footY] = legend(g, c, Math.round(bottom + (g.phone ? 20 : 24)));

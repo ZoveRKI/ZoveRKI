@@ -3,6 +3,8 @@
 import { r2, shade } from '../svg.ts';
 import { theme as t } from '../theme.ts';
 import type { Iso, Painter, Pt } from './landscape.ts';
+import { railMotion, RAIL_SPEED, type RailFrame } from './rail-motion.ts';
+import { landmarks } from './landmarks.ts';
 
 type Drawing = { svg: string; css: string };
 type At = (u: number, v: number, z?: number) => Pt;
@@ -38,7 +40,9 @@ function span(iso: Iso, v: number, z = 0): Pt {
 }
 
 /** 锚点只用于绘制车厢；默认变换与动画首帧都指向画外，等待入场或关闭动画时也不会闪现在轨道中间 */
-function travel(iso: Iso, v: number, z: number, from: number, to: number, anchor: number, name: string, seconds: number, shuttle = false, delay = 0): Drawing & { u: number } {
+function travel(iso: Iso, v: number, z: number, route: RailFrame[], anchor: number, name: string, delay: number): Drawing & { u: number } {
+  const from = route[0]!.u;
+  const to = Math.max(...route.map(frame => frame.u));
   const u = from + (to - from) * anchor;
   const [x, y] = iso.xy(u, v, z);
   const offset = (n: number): Pt => {
@@ -49,14 +53,15 @@ function travel(iso: Iso, v: number, z: number, from: number, to: number, anchor
     const [dx, dy] = offset(n);
     return `transform:translate(${dx}px,${dy}px)`;
   };
-  const entry = shuttle ? span(iso, v, z)[0] - 3 : from;
-  // 电车先从画外进站，在两端停靠后沿原路离开画面；首尾位置相同，循环时不会跳变。
-  // 96 秒的循环把额外时间留给进出站，站间运行时间与原来的 82 秒版本接近。
-  const keys = shuttle ? `0%,100%{${move(entry)}}6%,12%,88%,94%{${move(from)}}47%,53%{${move(to)}}` : `from{${move(from)}}to{${move(to)}}`;
+  const duration = r2(route.at(-1)!.time);
+  const keys = route.map(frame => {
+    const at = Math.round(frame.time / route.at(-1)!.time * 1e6) / 1e4;
+    return `${at}%{${move(frame.u)}${frame.easing === 'linear' ? '' : `;animation-timing-function:${frame.easing}`}}`;
+  }).join('');
   return {
     u,
-    svg: `class="${name}" transform="translate(${pt(offset(entry))})" style="animation-delay:${delay}s"`,
-    css: `@keyframes z${name}{${keys}}\n.${name}{animation:z${name} ${seconds}s linear infinite both}`,
+    svg: `class="${name}" transform="translate(${pt(offset(from))})" style="animation-delay:${delay}s"`,
+    css: `@keyframes z${name}{${keys}}\n.${name}{animation:z${name} ${duration}s linear infinite both}`,
   };
 }
 
@@ -114,11 +119,11 @@ function train(iso: Iso, P: Painter, u: number, v: number, z: number, express: b
 }
 
 /** 小车站的玻璃雨棚、站厅和通往滨海路的台阶，用来补齐左上角 */
-function station(iso: Iso, P: Painter): string {
+function station(iso: Iso, P: Painter): { ground: string; building: string } {
   const { xy, k } = iso;
   const stone = P.paint(P.snow ? '#59697a' : '#24343e');
-  let svg = polygon([xy(-8.4, -2.5), xy(-0.15, -2.5), xy(-0.15, 6.9), xy(-7.4, 6.9), xy(-8.4, 5)], stone);
-  svg += box(xy, -7.7, -0.7, -3.2, -1.3, (RAIL.viaduct - 1) * k, 2 * k, P.paint('#516173'));
+  const ground = polygon([xy(-8.4, -2.5), xy(-0.15, -2.5), xy(-0.15, 6.9), xy(-7.4, 6.9), xy(-8.4, 5)], stone);
+  let svg = box(xy, -7.7, -0.7, -3.2, -1.3, (RAIL.viaduct - 1) * k, 2 * k, P.paint('#516173'));
   svg += box(xy, -6.8, -1.1, -1.3, 1.2, 0, 12 * k, P.paint('#41566d'));
   for (let u = -6.5; u < -1.4; u += 0.85) {
     svg += polygon([xy(u, 1.21, 2 * k), xy(u + 0.57, 1.21, 2 * k), xy(u + 0.57, 1.21, 9 * k), xy(u, 1.21, 9 * k)], P.lights ? t.city.winOn : P.paint('#53798d'));
@@ -135,7 +140,7 @@ function station(iso: Iso, P: Painter): string {
   svg += line([[x, y], [x, y - 18 * k]], t.dim, 1.3 * k);
   svg += `<circle cx="${r2(x)}" cy="${r2(y - 18 * k)}" r="${r2(3.4 * k)}" fill="${P.paint('#b5c9d6')}"/>`;
   svg += line([[x, y - 20.4 * k], [x, y - 18 * k], [x + 1.6 * k, y - 17.5 * k]], t.panel, 0.8 * k);
-  return `<g data-landmark="station">${svg}</g>`;
+  return { ground: `<g data-landmark="station-ground">${ground}</g>`, building: `<g data-landmark="station">${svg}</g>` };
 }
 
 /** 右端的低矮广场：步道、花池、长椅；高低错开，给 Mon/Fri 标签留出空位 */
@@ -244,7 +249,8 @@ function fleet(iso: Iso, P: Painter): Drawing {
     const [a, b] = span(iso, spec.lane);
     // 入场前船头、桅杆都在画外；离场多留一些空间，让最长的快艇尾迹也完全退出后再循环。
     const [from, to] = spec.reverse ? [b + 3.5, a - 8] : [a - 3.5, b + 8];
-    const route = (f: number): Pt => [from + (to - from) * f, spec.lane + spec.drift * (f - 0.5) + spec.bend * Math.sin(f * Math.PI * 2)];
+    const across = (f: number): number => spec.lane + spec.drift * (f - 0.5) + spec.bend * Math.sin(f * Math.PI * 2);
+    const route = (f: number): Pt => [from + (to - from) * f, across(f)];
     const [u, v] = route(spec.anchor);
     const origin = iso.xy(u, v);
     const du = to - from;
@@ -257,7 +263,14 @@ function fleet(iso: Iso, P: Painter): Drawing {
     });
     const entry = iso.xy(...route(0));
     const start: Pt = [entry[0] - origin[0], entry[1] - origin[1]];
-    css.push(`@keyframes zsail${i}{${frames.join('')}}\n.sail${i}{animation:zsail${i} ${spec.seconds}s linear infinite both}`);
+    const [baseA, baseB] = span({ ...iso, y1: iso.referenceY1 ?? iso.y1 }, spec.lane);
+    const distance = (a: number, b: number): number => {
+      const points = Array.from({ length: 17 }, (_, j) => iso.xy(a + (b - a) * j / 16, across(j / 16)));
+      return points.slice(1).reduce((sum, p, j) => sum + Math.hypot(p[0] - points[j]![0], p[1] - points[j]![1]), 0);
+    };
+    const [baseFrom, baseTo] = spec.reverse ? [baseB + 3.5, baseA - 8] : [baseA - 3.5, baseB + 8];
+    const seconds = r2(spec.seconds * distance(from, to) / distance(baseFrom, baseTo));
+    css.push(`@keyframes zsail${i}{${frames.join('')}}\n.sail${i}{animation:zsail${i} ${seconds}s linear infinite both}`);
     return `<g class="boat" data-vessel="${spec.kind}"><g class="sail${i}" transform="translate(${pt(start)})" style="animation-delay:${r2(i * 1.2)}s"><g class="bob">${vessel(at, P, iso.k, spec)}</g></g></g>`;
   });
   return { svg: ships.join(''), css: css.join('\n') };
@@ -271,10 +284,19 @@ export function transport(iso: Iso, P: Painter): {
   const { xy, k, weeks } = iso;
   const z = RAIL.viaduct * k;
   const [a, b] = span(iso, RAIL.express, z);
-  const express = travel(iso, RAIL.express, z, a - 5, b + 5, 0.38, 'express', 34, false, 1.6);
+  // 四节客舱对齐 u=-7.7…-0.7 的站台，流线鼻锥略探出台沿。
+  const express = travel(iso, RAIL.express, z, railMotion([
+    { u: a - 5, pause: 0 }, { u: -4.15, pause: 3 }, { u: b + 5, pause: 0 },
+  ], RAIL_SPEED.express, 10, 8), 0.38, 'express', 1.6);
   const [ta, tb] = span(iso, RAIL.tram);
-  const [from, to] = [Math.max(ta + 1.8, -2), Math.min(weeks + 1.3, tb - 2)];
-  const tram = travel(iso, RAIL.tram, 0, from, to, 0.57, 'tram', 96, true, 2.8);
+  const [from, to] = [Math.max(ta + 2.8, -2), Math.min(weeks + 1.3, tb - 3)];
+  const tram = travel(iso, RAIL.tram, 0, railMotion([
+    { u: ta - 5, pause: 0 }, { u: from, pause: 2.8 }, { u: to, pause: 2.8 },
+    { u: tb + 5, pause: 2.5 }, { u: to, pause: 2.8 }, { u: from, pause: 2.8 },
+    { u: ta - 5, pause: 2.5 },
+  ], RAIL_SPEED.tram, 7, 5), 0.57, 'tram', 2.8);
+  const additions = landmarks(iso, P);
+  const terminus = station(iso, P);
   const ships = fleet(iso, P);
   let stops = '';
   for (const u of [from, to]) {
@@ -284,15 +306,15 @@ export function transport(iso: Iso, P: Painter): {
     stops += box(xy, u - 1.5, u + 1.4, 7.98, 8.37, 8 * k, k, P.paint('#447e8a'));
   }
   // 接触网高度与受电弓顶部一致；杆子在电车临海一侧，必须在车厢之后绘制。
-  let wire = line([xy(from - 3, RAIL.tram, 12.2 * k), xy(to + 3, RAIL.tram, 12.2 * k)], P.paint(t.dim), 0.55 * k, ' stroke-opacity=".55"');
-  for (let u = Math.ceil((from - 2) / 10) * 10; u < to + 3; u += 10) {
+  let wire = line([xy(ta - 4, RAIL.tram, 12.2 * k), xy(tb + 4, RAIL.tram, 12.2 * k)], P.paint(t.dim), 0.55 * k, ' stroke-opacity=".55"');
+  for (let u = Math.ceil((ta - 3) / 10) * 10; u < tb + 4; u += 10) {
     wire += line([xy(u, 9.15), xy(u, 9.15, 13.2 * k), xy(u, RAIL.tram, 12.2 * k)], P.paint(t.faint), 0.75 * k);
   }
   return {
-    css: `${express.css}\n${tram.css}\n${ships.css}\n@keyframes zharbor{50%{opacity:.35}}\n.harbor-light{animation:zharbor 3.6s ease-in-out infinite}`,
-    back: `<g data-rail="express">${track(iso, P, RAIL.express, z, a - 4, b + 4, true)}<g ${express.svg}>${train(iso, P, express.u, RAIL.express, z, true)}</g></g>`,
-    landmarks: station(iso, P) + plaza(iso, P),
-    shore: `<g data-rail="tram">${track(iso, P, RAIL.tram, 0, Math.min(ta - 2, from - 3), to + 3, false)}</g>`,
+    css: `${express.css}\n${tram.css}\n${ships.css}\n${additions.css}\n@keyframes zharbor{50%{opacity:.35}}\n.harbor-light{animation:zharbor 3.6s ease-in-out infinite}`,
+    back: `${additions.far}<g data-rail="express">${track(iso, P, RAIL.express, z, a - 4, b + 4, true)}<g ${express.svg}>${train(iso, P, express.u, RAIL.express, z, true)}</g></g>`,
+    landmarks: terminus.ground + additions.restaurantGround + additions.pavilionGround + additions.restaurant + terminus.building + additions.restaurantFront + plaza(iso, P) + additions.pavilion,
+    shore: `<g data-rail="tram">${track(iso, P, RAIL.tram, 0, ta - 4, tb + 4, false)}</g>`,
     platforms: `<g data-layer="tram-platforms">${stops}</g>`,
     tram: `<g data-layer="tram"><g ${tram.svg}>${train(iso, P, tram.u, RAIL.tram, 0, false)}</g></g>`,
     overhead: `<g data-layer="tram-overhead">${wire}</g>`,
