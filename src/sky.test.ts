@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Location } from './config.ts';
-import { skyAt, skyIn, sunTimes, weatherKind } from './sky.ts';
+import type { Sky } from './data.ts';
+import { previewSky, skyAt, skyIn, sunTimes, weatherKind } from './sky.ts';
 
 const TOKYO: Location = { timeZone: 'Asia/Tokyo', timeZoneName: 'JST', latitude: 35.68, longitude: 139.69 };
 
@@ -35,9 +36,23 @@ test('按日出日落分时段；黄昏过后等的是明天的日出，过了�
   assert.equal(skyAt(Date.parse('2026-10-22T12:00:00+09:00'), { ...TOKYO, timeZoneName: undefined }).at, '16:58 GMT+9');
 });
 
-test('预览时指定时段，日出日落时间按那一天算', () => {
+test('预览时指定时段，日出日落时间按那一天算；只换天气时沿用快照里的时间', () => {
   assert.deepEqual(skyIn('dusk', '2026-10-22', TOKYO), { phase: 'dusk', event: 'sunset', at: '16:58 JST' });
   assert.deepEqual(skyIn('dawn', '2026-10-22', TOKYO), { phase: 'dawn', event: 'sunrise', at: '05:53 JST' });
+  const fetched: Sky = { phase: 'night', event: 'sunrise', at: '05:54 JST', weather: 'overcast' };
+  assert.deepEqual(previewSky(fetched, TOKYO, '2026-10-22', 'dusk', 'rain'), {
+    phase: 'dusk',
+    event: 'sunset',
+    at: '16:58 JST',
+    weather: 'rain',
+  });
+  assert.deepEqual(previewSky(fetched, TOKYO, '2026-10-22', undefined, 'snow'), { ...fetched, weather: 'snow' });
+  assert.deepEqual(previewSky(fetched, TOKYO, '2026-10-22', 'day'), { ...skyIn('day', '2026-10-22', TOKYO), weather: 'overcast' });
+  // 快照里还没有天色时，只换天气就按夜里算
+  assert.deepEqual(previewSky(null, TOKYO, '2026-10-22', undefined, 'fog'), {
+    ...skyIn('night', '2026-10-22', TOKYO),
+    weather: 'fog',
+  });
 });
 
 test('天气代码归成几类', () => {

@@ -75,12 +75,18 @@ export function skyAt(now: number, loc: Location): Omit<Sky, 'weather'> {
   return { phase: 'night', event: 'sunrise', at: clock(sunTimes(nextDay(date), loc.latitude, loc.longitude).rise, loc) };
 }
 
-/** 本地预览用：指定时段，日出日落时间按 date 那天算 */
+/** 指定时段的天色，日出日落时间按 date 那天算 */
 export function skyIn(phase: Phase, date: string, loc: Location): Omit<Sky, 'weather'> {
   const { rise, set } = sunTimes(date, loc.latitude, loc.longitude);
   return phase === 'night' || phase === 'dawn'
     ? { phase, event: 'sunrise', at: clock(rise, loc) }
     : { phase, event: 'sunset', at: clock(set, loc) };
+}
+
+/** 本地预览用：把快照里的天色换成指定的时段和（或）天气。只换天气时，日出日落时间沿用快照里的 */
+export function previewSky(sky: Sky | null, loc: Location, date: string, phase?: Phase, weather?: Weather): Sky {
+  const base = phase || !sky ? skyIn(phase ?? 'night', date, loc) : sky;
+  return { ...base, weather: weather ?? sky?.weather ?? null };
 }
 
 /** Open-Meteo 用的 WMO 天气代码归成几类；文档里没有的代码当成多云 */
