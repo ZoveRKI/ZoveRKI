@@ -89,6 +89,17 @@ export type Snapshot = {
   sky: Sky | null;
 };
 
+/**
+ * 写进快照前整理仓库列表。主页仓库自己的推送时间每次都会被工作流的提交改掉，照实记下来的话，
+ * 下一次运行又会因为它变了而提交，一直循环下去；主页上也用不到它（项目列表排除了主页仓库），
+ * 所以记成创建时间。仓库按推送时间从新到旧排、时间相同时按名字排，主页仓库的位置也就固定了。
+ */
+export function stableRepos(repos: Repo[], profileRepo: string): Repo[] {
+  return repos
+    .map((r) => (r.name.toLowerCase() === profileRepo.toLowerCase() ? { ...r, pushedAt: r.createdAt } : r))
+    .sort((a, b) => (a.pushedAt === b.pushedAt ? (a.name < b.name ? -1 : 1) : a.pushedAt < b.pushedAt ? 1 : -1));
+}
+
 export async function readSnapshot(path = SNAPSHOT_PATH): Promise<Snapshot | null> {
   let text: string;
   try {

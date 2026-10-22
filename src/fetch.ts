@@ -6,7 +6,7 @@
 // REST 接口和贡献日历页面，这时拿不到「活动概览」的细分数据。每个数据源单独抓取，
 // 失败了就沿用上一次的数据，主页上不会出现空白。
 import { config } from './config.ts';
-import { readSnapshot, SNAPSHOT_PATH, type Sky, type Snapshot, writeSnapshot } from './data.ts';
+import { readSnapshot, SNAPSHOT_PATH, type Sky, type Snapshot, stableRepos, writeSnapshot } from './data.ts';
 import { fetchCalendarPage, fetchGraphql, fetchRestRepos, fetchRestUser, githubToken } from './github.ts';
 import { fetchWeather, skyAt } from './sky.ts';
 
@@ -31,7 +31,10 @@ console.log(token ? `使用 ${token.name}` : '没有 token：改用公开接口�
 const auth = token?.value ?? null;
 const gql = token ? await attempt('GraphQL 数据', () => fetchGraphql(login, token.value)) : null;
 const user = gql?.user ?? (await attempt('用户信息', () => fetchRestUser(login, auth))) ?? prev?.user ?? null;
-const repos = gql?.repos ?? (await attempt('仓库列表', () => fetchRestRepos(login, auth))) ?? prev?.repos ?? [];
+const repos = stableRepos(
+  gql?.repos ?? (await attempt('仓库列表', () => fetchRestRepos(login, auth))) ?? prev?.repos ?? [],
+  login,
+);
 const calendar = gql?.calendar ?? (await attempt('贡献日历', () => fetchCalendarPage(login))) ?? prev?.calendar ?? null;
 const activity = gql?.activity ?? prev?.activity ?? null;
 const privateLanguages = gql?.privateLanguages ?? prev?.privateLanguages ?? [];
