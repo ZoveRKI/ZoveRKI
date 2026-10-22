@@ -230,3 +230,29 @@ test('没有日历和活动数据时跳过对应板块', async () => {
   assert.ok(!page.files.has('activity.svg'));
   assert.ok(page.files.has('header.svg') && page.files.has('footer.svg'));
 });
+
+test('临海景物从远到近遮挡，汽车不能盖过路灯、站棚，接触网杆在电车前面', async () => {
+  for (const g of [DESKTOP, PHONE]) {
+    const svg = await contributions(g, buildContext(config, snapshot()));
+    const layers = ['cars', 'street-lamps', 'tram-platforms', 'tram', 'tram-overhead', 'harbor', 'boats'];
+    let last = svg.lastIndexOf('class="rise"');
+    for (const layer of layers) {
+      const index = svg.indexOf(`data-layer="${layer}"`);
+      assert.ok(index > last, `${g.phone ? '手机' : '桌面'} ${layer} 的遮挡顺序不正确`);
+      last = index;
+    }
+  }
+});
+
+test('飞机的整个航程位于统计下方、高架上方的天空通道，桌面和手机入场都不钻桥', async () => {
+  for (const g of [DESKTOP, PHONE]) {
+    const svg = await contributions(g, buildContext(config, snapshot()));
+    const k = g.phone ? 0.6 : 1;
+    const y = Number(svg.match(/class="plane"><g transform="translate\(-30 ([\d.]+)\)"/)?.[1]);
+    const rise = -Number(svg.match(/@keyframes zfly\{.*?to\{transform:translate\([^,]+,([-\d.]+)px\)/)?.[1]);
+    const landY = Number(svg.match(/<mask id="land"[^>]* y="([\d.]+)"/)?.[1]);
+    const statY = Math.max(...[...svg.matchAll(/<text\b[^>]* y="([\d.]+)"[^>]*>(?:active days|current streak|longest streak|best ·[^<]+)<\/text>/g)].map(([, v]) => Number(v)));
+    assert.ok(y - rise - 1.6 * k > statY + 2 * k, '飞机进入了统计文字区域');
+    assert.ok(y + 2.6 * k < landY - 4 * k, '飞机入场位置与高架重叠');
+  }
+});

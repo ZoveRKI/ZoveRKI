@@ -28,7 +28,7 @@ const CSS = `@keyframes zfl{0%,40%,100%{opacity:1}45%,60%{opacity:.1}}
 .beacon{animation:zbeacon 2.4s ease-in-out infinite}`;
 
 export const contributionsAlt = (c: Ctx): string =>
-  `${num(c.total)} contributions in the last year, drawn as a seaside city with one building per day${skyAlt(c.sky)}. Current streak ${plural(c.streak.current, 'day')}, longest ${plural(c.streak.longest, 'day')}.`;
+  `${num(c.total)} contributions in the last year, drawn as a seaside city with one building per day${skyAlt(c.sky)}, with boats, a high-speed train and a seaside tram. Current streak ${plural(c.streak.current, 'day')}, longest ${plural(c.streak.longest, 'day')}.`;
 
 type Cell = { d: Day; X: number; Z: number };
 type Pt = [number, number];
@@ -270,7 +270,8 @@ function legend(g: Geo, c: Ctx, y: number): [string, number] {
 
 export async function contributions(g: Geo, c: Ctx): Promise<string> {
   const [head, headEnd] = summary(g, c, g.top);
-  const top = headEnd + (g.phone ? 18 : 26);
+  // 给飞机与高架之间留出独立的天空通道，不让入场位置落到桥下或上方统计里。
+  const top = headEnd + (g.phone ? 26 : 40);
   const town = city(g, c, top);
   const right = town.horizon[2] ?? [g.right, top];
   const stage: Stage = g.phone
@@ -289,7 +290,7 @@ export async function contributions(g: Geo, c: Ctx): Promise<string> {
           [g.right - 262, top + 10, 0.55],
           [g.right - 64, top + 104, 0.45],
         ],
-        plane: { y: top + 14, rise: 14 },
+        plane: { y: headEnd + 10, rise: 3 },
         stars: { x0: g.left + 100, x1: g.x1, y0: top, y1: top + 110, n: 32 },
       }
     : {
@@ -307,18 +308,21 @@ export async function contributions(g: Geo, c: Ctx): Promise<string> {
           [g.right - 500, top + 14, 0.85],
           [g.right - 130, top + 160, 0.7],
         ],
-        plane: { y: top + 22, rise: 30 },
+        plane: { y: headEnd + 14, rise: 6 },
         stars: { x0: g.left + 180, x1: g.x1, y0: top, y1: top + 190, n: 50 },
       };
-  const sky = scene(c.sky, stage);
   const tw = (g.phone ? PHONE_PROJ : DESKTOP_PROJ).tw;
+  // 为城市右端的海滨广场和栈桥留出纵向空间，底部图例一起下移。
+  const bottom = town.bottom + 32 * (tw / DESKTOP_PROJ.tw);
+  stage.y1 = bottom;
+  const sky = scene(c.sky, stage);
   const land = landscape(
     { xy: town.xy, weeks: town.weeks, k: tw / DESKTOP_PROJ.tw, x0: stage.x0, x1: stage.x1, y0: stage.y0, y1: stage.y1 },
     c.sky,
   );
-  const [foot, footY] = legend(g, c, Math.round(town.bottom + (g.phone ? 20 : 24)));
+  const [foot, footY] = legend(g, c, Math.round(bottom + (g.phone ? 20 : 24)));
   const h = up(footY + (g.phone ? 16 : 22));
-  // 从后往前：天空、背后的草地和树、海和路、地块、楼、车和船、文字，最后是楼前面的雨雪和雾
+  // 从后往前：天空、高架和车站、草地和树、海和滨海轨道、地块、楼、车船和电车、文字，最后是雨雪和雾
   const body = `${sectionTop(g, 'skyline --last 1year', '# one building per day')}
 ${head}
 ${sky.back}
