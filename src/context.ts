@@ -9,6 +9,8 @@ import {
   pickProjects,
   type Project,
   type Share,
+  type StackGroup,
+  stackGroups,
   streaks,
   type Streaks,
   weekdayTotals,
@@ -35,6 +37,8 @@ export type Ctx = {
   /** 私有仓库里的提交总数 */
   privateCommits: number;
   projects: Project[];
+  /** 技术栈的分组，没有配置时是空数组 */
+  techStack: StackGroup[];
   /** 自己名下非 fork 仓库的 star 总数 */
   stars: number;
 };
@@ -55,6 +59,7 @@ export function buildContext(config: Config, s: Snapshot): Ctx {
     topRepos: s.activity?.repos ?? [],
     privateCommits: s.activity?.privateCommits ?? 0,
     projects: pickProjects(s.repos, config.projects, config.login),
+    techStack: stackGroups(config.techStack, s.repos, s.privateLanguages),
     stars: s.repos.filter((r) => !r.fork).reduce((n, r) => n + r.stars, 0),
   };
 }

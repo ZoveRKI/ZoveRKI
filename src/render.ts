@@ -17,6 +17,7 @@ import { header, headerAlt } from './sections/header.ts';
 import { languages, languagesAlt } from './sections/languages.ts';
 import { linkButton } from './sections/links.ts';
 import { projectAlt, projectRow, projectsHead } from './sections/projects.ts';
+import { stack, stackAlt } from './sections/stack.ts';
 import { DESKTOP, type Geo, PHONE } from './theme.ts';
 
 /** 同一张图的桌面版和手机版 */
@@ -50,6 +51,8 @@ export async function renderPage(c: Ctx): Promise<Page> {
       page.add('activity.svg', await both((g) => activity(g, c)), { alt: activityAlt(c) });
     } else if (section === 'languages' && c.langs.length) {
       page.add('languages.svg', await both((g) => languages(g, c)), { alt: languagesAlt(c) });
+    } else if (section === 'stack' && c.techStack.length) {
+      page.add('stack.svg', await both((g) => stack(g, c)), { alt: stackAlt(c) });
     } else if (section === 'projects' && c.projects.length) {
       page.add('projects.svg', await both((g) => projectsHead(g, c)), { alt: 'Projects' });
       for (const [i, p] of c.projects.entries()) {

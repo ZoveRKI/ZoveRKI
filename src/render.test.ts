@@ -4,7 +4,7 @@ import { resolveConfig } from './config.ts';
 import { buildContext } from './context.ts';
 import type { Level, Snapshot } from './data.ts';
 import { renderPage } from './render.ts';
-import { UNIT } from './theme.ts';
+import { theme, UNIT } from './theme.ts';
 
 const config = resolveConfig({
   login: 'octo',
@@ -16,6 +16,11 @@ const config = resolveConfig({
     { label: 'Email', url: 'mailto:octo@example.com' },
   ],
   projects: [{ repo: 'alpha' }, { repo: 'missing', description: '配置里写了、但 GitHub 上找不到的项目' }],
+  techStack: {
+    languages: ['Rust', 'go', 'Kotlin', 'TypeScript', 'JavaScript'],
+    frontend: ['React & <Vite>'],
+    tools: [],
+  },
 });
 
 function snapshot(): Snapshot {
@@ -116,6 +121,34 @@ test('头部是状态栏、结尾是 EOF；手机版状态栏放不下时只留 
   assert.match(svg('phone/header.svg'), />ONLINE</);
   assert.doesNotMatch(svg('phone/header.svg'), /ALL SYSTEMS NOMINAL/);
   assert.match(svg('footer.svg'), /connection to <tspan class="ac">octo<\/tspan> closed\. <tspan class="faint">\/\/ EOF/);
+});
+
+test('技术栈：语言带上统计里的颜色，空的组不显示，手机版放不下时换行', async () => {
+  const page = await renderPage(buildContext(config, snapshot()));
+  const desktop = page.files.get('stack.svg') ?? '';
+  const phone = page.files.get('phone/stack.svg') ?? '';
+  // 公开仓库里的 Rust、私有仓库里的 Go 都带上语言颜色，不区分大小写；没有数据的 Kotlin 用灰色，和同组对齐
+  assert.match(desktop, /fill="#dea584"\/><text[^>]*>Rust</);
+  assert.match(desktop, /fill="#00ADD8"\/><text[^>]*>go</);
+  assert.match(desktop, new RegExp(`fill="${theme.faint}"/><text[^>]*>Kotlin<`));
+  // 一组里都不是语言时不画小方块
+  assert.match(desktop, new RegExp(`stroke="${theme.border}"/><text[^>]*>React &amp; &lt;Vite&gt;<`));
+  assert.doesNotMatch(desktop, />tools</);
+  assert.match(desktop, /># 2 directories, 6 files</);
+  // 条目文字的基线：同一行的相同，换了行的不同
+  const baseline = (svg: string, name: string): string => {
+    const y = svg.match(new RegExp(`y="([\\d.]+)" font-size="\\d+">${name}</text>`))?.[1];
+    assert.ok(y, `${name} 没有画出来`);
+    return y;
+  };
+  assert.equal(baseline(desktop, 'JavaScript'), baseline(desktop, 'Rust'));
+  assert.notEqual(baseline(phone, 'JavaScript'), baseline(phone, 'Rust'));
+});
+
+test('没有配置技术栈时不显示这个板块', async () => {
+  const page = await renderPage(buildContext(resolveConfig({ login: 'octo', tagline: '' }), snapshot()));
+  assert.ok(!page.files.has('stack.svg'));
+  assert.ok(page.files.has('languages.svg'));
 });
 
 test('languages.show 把语言从 Other 清单里拿出来，不区分大小写', () => {

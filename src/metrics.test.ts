@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Day, Repo } from './data.ts';
-import { accountAge, bestDay, languageShares, overview, streaks, weekdayTotals } from './metrics.ts';
+import { accountAge, bestDay, languageShares, overview, stackGroups, streaks, weekdayTotals } from './metrics.ts';
+import { readable } from './svg.ts';
 
 /** 从 2026-01-01（周四）开始的连续日子 */
 const days = (counts: number[]): Day[] =>
@@ -83,6 +84,33 @@ test('语言占比：辅助语言和占比太小的归入 Other，不算 fork �
   assert.deepEqual(languageShares(site, { ...opts, extra: [], other: ['HTML', 'CSS'] }).map(round), [
     ['HTML', 60, false],
     ['CSS', 40, false],
+  ]);
+});
+
+test('技术栈的条目和语言同名时带上语言颜色，不区分大小写，太暗的颜色调亮', () => {
+  const app: Repo = { ...repo('app', []), languages: [{ name: 'Rust', color: '#dea584', size: 10 }] };
+  const extra = [
+    { name: 'Ruby', color: '#701516', size: 1 },
+    { name: 'Nu', color: null, size: 1 },
+  ];
+  const groups = stackGroups(
+    [
+      ['languages', ['rust', 'Ruby', 'Nu']],
+      ['backend', ['axum']],
+    ],
+    [app],
+    extra,
+  );
+  assert.deepEqual(groups, [
+    {
+      name: 'languages',
+      items: [
+        { name: 'rust', color: '#dea584' },
+        { name: 'Ruby', color: readable('#701516') },
+        { name: 'Nu', color: null },
+      ],
+    },
+    { name: 'backend', items: [{ name: 'axum', color: null }] },
   ]);
 });
 

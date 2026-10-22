@@ -23,6 +23,20 @@ export default {
     },
   ],
 
+  // 技术栈板块：一组一行，按这里的顺序显示；条目和 GitHub 语言统计里的语言同名时会带上语言的颜色
+  techStack: {
+    languages: ['Rust', 'Go', 'TypeScript', 'JavaScript', 'Python', 'Ruby'],
+    frontend: ['React', 'Vite'],
+    // Web 框架
+    backend: ['axum', 'Gin', 'Rails'],
+    // 异步运行时和序列化，不只用在后端
+    libraries: ['tokio', 'serde'],
+    // 数据库相关的库和工具：SQL 工具包、PostgreSQL 驱动、迁移工具
+    'db-tools': ['sqlx', 'pgx', 'goose'],
+    databases: ['PostgreSQL', 'MySQL', 'SQLite', 'Redis'],
+    cloud: ['AWS', 'GCP'],
+  },
+
   // 语言占比：HTML、Shell 这类标记、样式和构建脚本语言（清单见 src/config.ts 的 OTHER_LANGUAGES），
   // 以及占比不到 1% 的语言，都归入 Other；show 里的语言从清单里拿出来单独显示。
   // 其他可调的项，例如：{ other: ['HTML', 'Shell'], min: 2, max: 6 }
@@ -35,5 +49,5 @@ export default {
   // facts: [['editor', 'VS Code']],
 
   // 板块和顺序：
-  // sections: ['contributions', 'activity', 'languages', 'projects'],
+  // sections: ['contributions', 'activity', 'languages', 'stack', 'projects'],
 } satisfies ProfileConfig;

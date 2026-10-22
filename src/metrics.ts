@@ -91,6 +91,25 @@ export function languageShares(repos: Repo[], o: ShareOpts): Share[] {
   return rest ? [...head, { name: 'Other', color: t.faint, size: rest, pct: (rest / total) * 100, other: true }] : head;
 }
 
+export type StackItem = { name: string; color: string | null };
+export type StackGroup = { name: string; items: StackItem[] };
+
+/**
+ * 技术栈板块的分组。条目和语言统计里的某种语言同名时（不区分大小写），带上那种语言的颜色；
+ * 颜色只看有没有这种语言，不管它算不算进语言占比。
+ */
+export function stackGroups(groups: [string, string[]][], repos: Repo[], extra: Language[]): StackGroup[] {
+  const colors = new Map<string, string>();
+  for (const l of [...repos.flatMap((r) => r.languages), ...extra]) {
+    const key = l.name.toLowerCase();
+    if (l.color && !colors.has(key)) colors.set(key, readable(l.color));
+  }
+  return groups.map(([name, items]) => ({
+    name,
+    items: items.map((item) => ({ name: item, color: colors.get(item.toLowerCase()) ?? null })),
+  }));
+}
+
 export type OverviewItem = {
   key: 'commits' | 'reviews' | 'issues' | 'prs';
   label: string;

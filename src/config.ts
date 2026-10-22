@@ -15,7 +15,7 @@ export type FeaturedProject = {
   description?: string;
 };
 
-export const SECTIONS = ['contributions', 'activity', 'languages', 'projects'] as const;
+export const SECTIONS = ['contributions', 'activity', 'languages', 'stack', 'projects'] as const;
 
 /**
  * 语言占比里一律归入 Other 的辅助语言：标记、样式、模板、构建和脚本。
@@ -75,6 +75,8 @@ export type ProfileConfig = {
   links?: Link[];
   /** 精选项目，按顺序显示；不填时自动选 star 多、最近有更新的非 fork 仓库 */
   projects?: FeaturedProject[];
+  /** 技术栈板块：组名 → 这一组的条目，按书写顺序显示；不填就不显示这个板块 */
+  techStack?: Record<string, string[]>;
   languages?: {
     /** 完全不计入统计的语言 */
     exclude?: string[];
@@ -103,6 +105,8 @@ export type Config = {
   facts: [string, string][];
   links: Link[];
   projects: FeaturedProject[];
+  /** 去掉了空的组 */
+  techStack: [group: string, items: string[]][];
   languages: { exclude: string[]; other: string[]; min: number; max: number };
   sections: Section[];
   branch: string;
@@ -120,6 +124,7 @@ export function resolveConfig(c: ProfileConfig): Config {
     facts: c.facts ?? [],
     links: c.links ?? [],
     projects: c.projects ?? [],
+    techStack: Object.entries(c.techStack ?? {}).filter(([, items]) => items.length),
     languages: {
       exclude: c.languages?.exclude ?? [],
       other: (c.languages?.other ?? OTHER_LANGUAGES).filter((l) => !show.has(l.toLowerCase())),
