@@ -88,6 +88,19 @@ export function truncate(s: string, size: number, maxWidth: number): string {
 /** 坐标保留两位小数，生成的文件小一些 */
 export const r2 = (n: number): number => Math.round(n * 100) / 100;
 
+/** 由字符串决定的伪随机数（0 到 1）：种子相同，每次生成的序列都一样，画出来的图也就不变 */
+export function random(seed: string): () => number {
+  // 用 FNV-1a 把字符串散列成种子，再用 mulberry32 生成
+  let s = 2166136261;
+  for (const c of seed) s = Math.imul(s ^ c.charCodeAt(0), 16777619);
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let x = Math.imul(s ^ (s >>> 15), 1 | s);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export const num = (n: number): string => n.toLocaleString('en-US');
 
 /** 1 day、2 days */

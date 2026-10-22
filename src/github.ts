@@ -2,7 +2,8 @@
 import type { Activity, Calendar, Day, Language, Level, Repo, User } from './data.ts';
 
 const API = 'https://api.github.com';
-const UA = 'zoverki-profile-generator';
+/** 请求头里的 User-Agent，查天气时也用它 */
+export const UA = 'zoverki-profile-generator';
 
 /** 优先用能看到更多数据的 PROFILE_TOKEN，其次是 Actions 自带的 GITHUB_TOKEN；name 是环境变量名，用于日志 */
 export function githubToken(): { name: string; value: string } | null {

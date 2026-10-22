@@ -56,6 +56,25 @@ export type Activity = {
   privateCommits: number;
 };
 
+/** 一天里的时段，按所在地的日出日落划分 */
+export const PHASES = ['night', 'dawn', 'day', 'dusk'] as const;
+export type Phase = (typeof PHASES)[number];
+
+/** 天气，由 Open-Meteo 的天气代码归成几类 */
+export const WEATHERS = ['clear', 'cloudy', 'overcast', 'fog', 'drizzle', 'rain', 'snow', 'storm'] as const;
+export type Weather = (typeof WEATHERS)[number];
+
+/** 抓取数据时所在地的天色和天气，贡献城市的天空照着它画 */
+export type Sky = {
+  phase: Phase;
+  /** 夜里和黎明显示日出时间，白天和黄昏显示日落时间 */
+  event: 'sunrise' | 'sunset';
+  /** 当地时间，比如 05:51 JST */
+  at: string;
+  /** 抓不到天气时是 null */
+  weather: Weather | null;
+};
+
 export type Snapshot = {
   login: string;
   /** 数据截止日期（贡献日历的最后一天） */
@@ -66,6 +85,8 @@ export type Snapshot = {
   activity: Activity | null;
   /** 私有仓库按语言加总的代码量，不含仓库名；需要能读私有仓库的令牌 */
   privateLanguages: Language[];
+  /** 没有配置所在地（location）时是 null */
+  sky: Sky | null;
 };
 
 export async function readSnapshot(path = SNAPSHOT_PATH): Promise<Snapshot | null> {
@@ -79,6 +100,7 @@ export async function readSnapshot(path = SNAPSHOT_PATH): Promise<Snapshot | nul
   const s = JSON.parse(text) as Snapshot;
   // 旧版本的数据没有这些字段
   s.privateLanguages ??= [];
+  s.sky ??= null;
   if (s.activity) s.activity.privateCommits ??= 0;
   return s;
 }

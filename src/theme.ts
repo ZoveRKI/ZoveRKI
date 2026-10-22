@@ -21,6 +21,26 @@ export const theme = {
   cyan: '#4fd8eb',
   /** 贡献等级 1–4 的楼顶颜色 */
   levels: ['#1c3b6c', '#2962b6', '#3f8fef', '#8ccbff'],
+  /** 贡献城市的楼：左右两面，亮着的窗户（左面、右面），暗着的窗户，楼顶天线的航空灯 */
+  city: {
+    left: '#1c2843',
+    right: '#121a2e',
+    winOn: '#a8e9ff',
+    winSide: '#5fc3ef',
+    winOff: '#172038',
+    beacon: '#ff6b81',
+  },
+  /** 贡献城市上空：黎明的粉、白天的蓝、黄昏的橙、早晚高处的紫，以及太阳、月亮和星星 */
+  sky: {
+    dawn: '#ff8fbf',
+    day: '#8ec5ff',
+    dusk: '#ff9e5e',
+    violet: '#6d3fb0',
+    sun: '#ffd36e',
+    sunCore: '#fff6d8',
+    moon: '#eef3fb',
+    star: '#d3dbe8',
+  },
 } as const;
 
 /** 背景网格的格子大小。切片的高度都是它的倍数，网格才能在上下切片之间对齐 */

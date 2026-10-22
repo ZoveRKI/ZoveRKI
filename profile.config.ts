@@ -37,6 +37,10 @@ export default {
     cloud: ['AWS', 'GCP'],
   },
 
+  // 所在地：贡献城市的天色（夜里、黎明、白天、黄昏）跟着这里的日出日落变，天气是这里的实时天气。
+  // 经纬度精确到城市就够了，抓取数据时会发给 Open-Meteo 查天气；时区和日出日落时间会显示在主页上
+  location: { timeZone: 'Asia/Tokyo', timeZoneName: 'JST', latitude: 35.68, longitude: 139.69 },
+
   // 语言占比：HTML、Shell 这类标记、样式和构建脚本语言（清单见 src/config.ts 的 OTHER_LANGUAGES），
   // 以及占比不到 1% 的语言，都归入 Other；show 里的语言从清单里拿出来单独显示。
   // 其他可调的项，例如：{ other: ['HTML', 'Shell'], min: 2, max: 6 }

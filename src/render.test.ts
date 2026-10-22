@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { resolveConfig } from './config.ts';
 import { buildContext } from './context.ts';
-import type { Level, Snapshot } from './data.ts';
+import { type Level, PHASES, type Sky, type Snapshot, WEATHERS } from './data.ts';
 import { renderPage } from './render.ts';
-import { theme, UNIT } from './theme.ts';
+import { contributions } from './sections/contributions.ts';
+import { DESKTOP, PHONE, theme, UNIT } from './theme.ts';
 
 const config = resolveConfig({
   login: 'octo',
@@ -67,6 +68,7 @@ function snapshot(): Snapshot {
       // 辅助语言，归入 Other；Other 里只有它，不到 0.05%，图例里显示成 <0.1%
       { name: 'Nu', color: null, size: 1 },
     ],
+    sky: { phase: 'night', event: 'sunrise', at: '05:51 JST', weather: 'rain' },
   };
 }
 
@@ -162,6 +164,51 @@ test('同样的数据生成一模一样的文件', async () => {
   const b = await renderPage(buildContext(config, snapshot()));
   assert.deepEqual([...a.files], [...b.files]);
   assert.equal(a.readme(), b.readme());
+});
+
+test('贡献城市从左上（最旧）往右下（最新）排，命令是 --last 1year，底下写着天色和天气', async () => {
+  const page = await renderPage(buildContext(config, snapshot()));
+  const svg = page.files.get('contributions.svg') ?? '';
+  assert.match(svg, /<\/tspan> skyline --last 1year</);
+  assert.match(svg, />night<\/tspan> · rain · sunrise 05:51 JST</);
+  // 每栋楼按周依次升起：动画延迟最小的是最旧的一周，最大的是最新的一周；比较两栋楼左面的左下角
+  const corners = [...svg.matchAll(/<g class="rise" style="animation-delay:([\d.]+)s"><polygon points="([\d.]+),([\d.]+)/g)]
+    .map(([, d, x, y]) => [Number(d), Number(x), Number(y)] as const)
+    .sort((a, b) => a[0] - b[0]);
+  const [, x0 = 0, y0 = 0] = corners[0] ?? [];
+  const [, x1 = 0, y1 = 0] = corners.at(-1) ?? [];
+  assert.ok(corners.length > 100 && x0 < x1 && y0 < y1, `最旧 (${x0}, ${y0})，最新 (${x1}, ${y1})`);
+});
+
+test('每种时段和天气都能画出来，各有各的效果；没有配置所在地时是没有天气的夜晚', async () => {
+  const draw = (sky: Sky | null, g = DESKTOP) => contributions(g, buildContext(config, { ...snapshot(), sky }));
+  for (const phase of PHASES) {
+    for (const weather of WEATHERS) {
+      for (const g of [DESKTOP, PHONE]) {
+        const svg = await draw({ phase, event: 'sunset', at: '16:58 JST', weather }, g);
+        const name = `${phase}-${weather}${g.phone ? '-phone' : ''}`;
+        assert.equal(Number(svg.match(/height="(\d+)"/)?.[1]) % UNIT, 0, name);
+        assertWellFormed(name, svg);
+      }
+    }
+  }
+  const sky = (phase: Sky['phase'], weather: Sky['weather']): Sky => ({ phase, event: 'sunrise', at: '05:51 JST', weather });
+  const has = async (s: Sky | null, ...classes: string[]): Promise<void> => {
+    const svg = await draw(s);
+    for (const c of classes) assert.match(svg, new RegExp(`class="${c}"`), `${s?.phase} ${s?.weather}：${c}`);
+  };
+  await has(sky('night', 'rain'), 'rain');
+  await has(sky('dusk', 'snow'), 'snow', 'sway');
+  await has(sky('dawn', 'fog'), 'fog');
+  await has(sky('night', 'storm'), 'rain', 'flash', 'bolt');
+  // 晴天的白天有转动的光芒，晴天的夜里有月亮，都不下雨
+  const day = await draw(sky('day', 'clear'));
+  assert.match(day, /class="rays"/);
+  assert.doesNotMatch(day, /class="rain"/);
+  assert.match(await draw(sky('night', 'clear')), /url\(#moonglow\)/);
+  const plain = await draw(null);
+  assert.match(plain, /url\(#moonglow\)/);
+  assert.doesNotMatch(plain, /sunrise|sunset/);
 });
 
 test('没有日历和活动数据时跳过对应板块', async () => {

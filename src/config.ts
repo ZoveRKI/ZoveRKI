@@ -15,6 +15,17 @@ export type FeaturedProject = {
   description?: string;
 };
 
+/** 所在地：贡献城市的天色按这里的日出日落变化，天气也查这里的 */
+export type Location = {
+  /** IANA 时区名，比如 Asia/Tokyo */
+  timeZone: string;
+  /** 城市下面显示的时区名，比如 JST；不填时由 Intl 生成，美国以外的时区通常是 GMT+9 这种形式 */
+  timeZoneName?: string;
+  /** 纬度和经度，精确到城市就够了 */
+  latitude: number;
+  longitude: number;
+};
+
 export const SECTIONS = ['contributions', 'activity', 'languages', 'stack', 'projects'] as const;
 
 /**
@@ -89,6 +100,8 @@ export type ProfileConfig = {
     /** 最多单独显示几种语言，默认 8 */
     max?: number;
   };
+  /** 所在地，不填时贡献城市一直是没有天气的夜晚 */
+  location?: Location;
   /** 板块和顺序，不想显示的板块从这里删掉 */
   sections?: Section[];
   /** 主页仓库的默认分支，手机版图片的地址要用 */
@@ -108,6 +121,7 @@ export type Config = {
   /** 去掉了空的组 */
   techStack: [group: string, items: string[]][];
   languages: { exclude: string[]; other: string[]; min: number; max: number };
+  location: Location | null;
   sections: Section[];
   branch: string;
 };
@@ -131,6 +145,7 @@ export function resolveConfig(c: ProfileConfig): Config {
       min: c.languages?.min ?? 1,
       max: c.languages?.max ?? 8,
     },
+    location: c.location ?? null,
     sections: c.sections ?? [...SECTIONS],
     branch: c.branch ?? 'main',
   };

@@ -1,6 +1,6 @@
 // 渲染上下文：把配置和抓到的数据整理成各板块直接能用的数值
 import type { Config } from './config.ts';
-import type { Day, Snapshot } from './data.ts';
+import type { Day, Sky, Snapshot } from './data.ts';
 import {
   bestDay,
   languageShares,
@@ -41,6 +41,8 @@ export type Ctx = {
   techStack: StackGroup[];
   /** 自己名下非 fork 仓库的 star 总数 */
   stars: number;
+  /** 贡献城市的天色和天气，没有配置所在地时是 null */
+  sky: Sky | null;
 };
 
 export function buildContext(config: Config, s: Snapshot): Ctx {
@@ -61,5 +63,6 @@ export function buildContext(config: Config, s: Snapshot): Ctx {
     projects: pickProjects(s.repos, config.projects, config.login),
     techStack: stackGroups(config.techStack, s.repos, s.privateLanguages),
     stars: s.repos.filter((r) => !r.fork).reduce((n, r) => n + r.stars, 0),
+    sky: s.sky,
   };
 }

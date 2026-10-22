@@ -1,25 +1,36 @@
-// 贡献天际线：过去一年每天一栋楼。每周一列从左往右排、越往右越远，一周七天从后往前排；
-// 楼高按当天贡献数的平方根算，最忙的一天不会把其他楼压得看不见。
+// 贡献城市：过去一年每天一栋楼。每周一排，从左上往右下排，越往右下越新；一周七天从右上往左下排。
+// 楼高按当天贡献数的平方根算，最忙的一天不会把其他楼压得看不见；楼顶的颜色是 GitHub 的贡献等级。
+// 楼和窗户照着 Giorgi Kobaidze 的设计实现（见 NOTICE），天空和天气见 scene.ts。
 import type { Ctx } from '../context.ts';
-import type { Day } from '../data.ts';
+import type { Day, Phase } from '../data.ts';
 import { sectionTop, slice } from '../frame.ts';
-import { daysBetween, delay, esc, MONTHS, monthDay, num, plural, r2, shade, textWidth, weekday } from '../svg.ts';
+import { daysBetween, delay, esc, mix, MONTHS, monthDay, num, plural, r2, random, textWidth, weekday } from '../svg.ts';
 import { type Geo, theme as t, up } from '../theme.ts';
+import { scene, skyAlt, skyText, type Stage } from './scene.ts';
 
-/** 投影参数：每过一周向右 cw、向上 rise；每过一天向右 dx、向下 dy；楼最高 H；gap 是楼与楼的间隙 */
-type Proj = { cw: number; rise: number; dx: number; dy: number; H: number; gap: number };
-const DESKTOP_PROJ: Proj = { cw: 12, rise: 3, dx: 6, dy: 6, H: 84, gap: 0.12 };
-const PHONE_PROJ: Proj = { cw: 6.2, rise: 1.6, dx: 3.1, dy: 3.1, H: 46, gap: 0.14 };
+/** 等距投影：一格宽 tw、高 tw/2；楼最高 H；gap 是楼与楼之间的空隙占一格的比例；win 是窗户的缩放 */
+type Proj = { tw: number; H: number; gap: number; win: number };
+const DESKTOP_PROJ: Proj = { tw: 24, H: 100, gap: 0.1, win: 1 };
+const PHONE_PROJ: Proj = { tw: 13, H: 56, gap: 0.1, win: 0.55 };
 
 const WEEKDAY_LABELS: [number, string][] = [
   [1, 'Mon'],
   [5, 'Fri'],
 ];
 
+/** 夜里亮着的窗户，别的时段还亮着多少：都是夜里那些窗户的一部分，换时段时窗户的位置不变 */
+const LIT: Record<Phase, number> = { night: 0.55, dusk: 0.3, dawn: 0.2, day: 0.06 };
+
+const CSS = `@keyframes zfl{0%,40%,100%{opacity:1}45%,60%{opacity:.1}}
+.fl0{animation:zfl 5s infinite}.fl1{animation:zfl 7s 2s infinite}.fl2{animation:zfl 9s 4s infinite}
+@keyframes zbeacon{0%,100%{opacity:.2}50%{opacity:1}}
+.beacon{animation:zbeacon 2.4s ease-in-out infinite}`;
+
 export const contributionsAlt = (c: Ctx): string =>
-  `${num(c.total)} contributions in the last year. Current streak ${plural(c.streak.current, 'day')}, longest ${plural(c.streak.longest, 'day')}.`;
+  `${num(c.total)} contributions in the last year, drawn as a city with one building per day${skyAlt(c.sky)}. Current streak ${plural(c.streak.current, 'day')}, longest ${plural(c.streak.longest, 'day')}.`;
 
 type Cell = { d: Day; X: number; Z: number };
+type Pt = [number, number];
 
 /** X 是第几周，Z 是星期几（0 是周日） */
 function layout(days: Day[]): Cell[] {
@@ -58,87 +69,234 @@ ${cells.join('\n')}`;
   return [markup, g.phone ? y + big + 26 + 44 + 19 : y + big];
 }
 
-/** 天际线本体；top 是最高的楼可能到达的位置，返回标记和底部位置 */
-function skyline(g: Geo, c: Ctx, top: number): [string, number] {
-  const P = g.phone ? PHONE_PROJ : DESKTOP_PROJ;
+/** 各个时段楼的颜色：左右两面和暗着的窗户。白天的玻璃映着天光；黎明和黄昏的太阳在右边，右面偏暖 */
+function facade(p: Phase): { left: string; right: string; offL: string; offR: string } {
+  const C = t.city;
+  switch (p) {
+    case 'night':
+      return { left: C.left, right: C.right, offL: C.winOff, offR: C.winOff };
+    case 'dawn':
+      return {
+        left: mix(C.left, t.sky.violet, 0.12),
+        right: mix(C.right, t.sky.dawn, 0.1),
+        offL: C.winOff,
+        offR: mix(C.winOff, t.sky.dawn, 0.3),
+      };
+    case 'day':
+      return {
+        left: mix(C.left, t.sky.day, 0.12),
+        right: mix(C.right, t.sky.day, 0.08),
+        offL: mix(C.winOff, t.sky.day, 0.18),
+        offR: mix(C.winOff, t.sky.day, 0.26),
+      };
+    case 'dusk':
+      return {
+        left: mix(C.left, t.sky.violet, 0.14),
+        right: mix(C.right, t.sky.dusk, 0.12),
+        offL: C.winOff,
+        offR: mix(C.winOff, t.sky.dusk, 0.42),
+      };
+  }
+}
+
+const pt = ([x, y]: Pt): string => `${r2(x)},${r2(y)}`;
+const polygon = (list: Pt[], fill: string): string => `<polygon points="${list.map(pt).join(' ')}" fill="${fill}"/>`;
+
+type Facade = ReturnType<typeof facade>;
+
+/**
+ * 楼两面的窗户：每层每面两扇。哪里有窗、亮不亮由当天的日期决定，同一天的楼每次画出来都一样；
+ * 楼变高时只在上面加层，下面几层不变。faces 是左右两面的底边，从左往右；flick 给闪烁的窗户编号
+ */
+function windows(
+  date: string,
+  faces: [Pt, Pt][],
+  h: number,
+  k: number,
+  p: Phase,
+  F: Facade,
+  flick: () => number,
+): string {
+  const next = random(date);
+  const [onL, onR, offL, offR]: string[][] = [[], [], [], []];
+  const flickers: string[] = [];
+  const rows = Math.floor((h - 6 * k) / (7 * k));
+  for (let row = 0; row < rows; row++) {
+    const z0 = (5 + row * 7) * k;
+    const z1 = z0 + 3.2 * k;
+    for (const [i, [a, b]] of faces.entries()) {
+      for (const s0 of [0.18, 0.58]) {
+        const [lot, wall, blink] = [next(), next(), next()];
+        // 夜里不亮的位置有一半是墙
+        if (lot >= LIT.night && wall < 0.5) continue;
+        const at = (s: number, z: number): Pt => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s - z];
+        const seg = `M${pt(at(s0, z0))}L${pt(at(s0 + 0.26, z0))}L${pt(at(s0 + 0.26, z1))}L${pt(at(s0, z1))}Z`;
+        if (lot >= LIT[p]) (i ? offR : offL).push(seg);
+        else if (blink < 0.04) flickers.push(`<path class="fl${flick() % 3}" d="${seg}" fill="${i ? t.city.winSide : t.city.winOn}"/>`);
+        else (i ? onR : onL).push(seg);
+      }
+    }
+  }
+  const paths: [string[], string][] = [
+    [offL, F.offL],
+    [offR, F.offR],
+    [onL, t.city.winOn],
+    [onR, t.city.winSide],
+  ];
+  return paths.map(([d, fill]) => (d.length ? `<path d="${d.join('')}" fill="${fill}"/>` : '')).join('') + flickers.join('');
+}
+
+/** 城市本体；top 是最高的楼能到的位置。返回标记、最下面的位置和地面后方的轮廓（左角、最远的角、右角） */
+function city(g: Geo, c: Ctx, top: number): { markup: string; bottom: number; horizon: Pt[] } {
+  const { tw, H, gap, win } = g.phone ? PHONE_PROJ : DESKTOP_PROJ;
+  const p = c.sky?.phase ?? 'night';
+  const F = facade(p);
   const cells = layout(c.days);
   const weeks = (cells.at(-1)?.X ?? 0) + 1;
-  const ox = g.left + (g.right - g.left - (weeks * P.cw + 7 * P.dx)) / 2;
-  const oy = top + P.H + weeks * P.rise;
-  const xy = (X: number, Z: number, Y = 0): [number, number] => [ox + X * P.cw + Z * P.dx, oy - X * P.rise + Z * P.dy - Y];
-  const pt = (X: number, Z: number, Y = 0): string => xy(X, Z, Y).map(r2).join(',');
-  const quad = (a: string, b: string, cc: string, d: string, fill = ''): string =>
-    `<polygon points="${a} ${b} ${cc} ${d}"${fill ? ` fill="${fill}"` : ''}/>`;
+  const ox = g.left + (g.right - g.left - ((weeks + 7) * tw) / 2) / 2 + (7 * tw) / 2;
+  const oy = top + H;
+  // (u, v) 是地面上的坐标：u 沿着周往右下，v 沿着星期往左下；z 是离地面的高度
+  const xy = (u: number, v: number, z = 0): Pt => [ox + ((u - v) * tw) / 2, oy + ((u + v) * tw) / 4 - z];
 
   const max = Math.max(1, ...c.days.map((d) => d.count));
   const ground: string[] = [];
-  const bars: string[] = [];
-  // 先画远处的：靠后的一天先画，同一天里靠右（更远）的一周先画
-  for (const { d, X, Z } of [...cells].sort((a, b) => a.Z - b.Z || b.X - a.X)) {
-    const [x0, x1, z0, z1] = [X + P.gap, X + 1 - P.gap, Z + P.gap, Z + 1 - P.gap];
+  const blocks: string[] = [];
+  let flicks = 0;
+  const flick = (): number => flicks++;
+  // 从远往近画：u + v 越小离观众越远
+  for (const { d, X, Z } of [...cells].sort((a, b) => a.X + a.Z - (b.X + b.Z) || a.X - b.X)) {
+    const [u0, u1, v0, v1] = [X + gap, X + 1 - gap, Z + gap, Z + 1 - gap];
+    const base: Pt[] = [xy(u0, v0), xy(u1, v0), xy(u1, v1), xy(u0, v1)];
+    const [, R, B, L] = base as [Pt, Pt, Pt, Pt];
     if (!d.count) {
-      ground.push(quad(pt(x0, z0), pt(x1, z0), pt(x1, z1), pt(x0, z1)));
+      ground.push(`<polygon points="${base.map(pt).join(' ')}"/>`);
       continue;
     }
-    const h = Math.max(2, P.H * Math.sqrt(d.count / max));
+    const h = Math.max(6 * win, H * Math.sqrt(d.count / max));
+    const lift = ([x, y]: Pt): Pt => [x, y - h];
     const roof = t.levels[Math.min(4, Math.max(1, d.level)) - 1] ?? t.accent;
-    const front = quad(pt(x0, z1), pt(x1, z1), pt(x1, z1, h), pt(x0, z1, h), shade(roof, 0.66));
-    const side = quad(pt(x0, z0), pt(x0, z1), pt(x0, z1, h), pt(x0, z0, h), shade(roof, 0.46));
-    const lid = quad(pt(x0, z0, h), pt(x1, z0, h), pt(x1, z1, h), pt(x0, z1, h), roof);
-    bars.push(`<g class="rise" ${delay(0.2 + X * 0.022)}>${front}${side}${lid}</g>`);
+    let shapes =
+      polygon([L, B, lift(B), lift(L)], F.left) +
+      polygon([B, R, lift(R), lift(B)], F.right) +
+      polygon(base.map(lift), roof) +
+      windows(d.date, [[L, B], [B, R]], h, win, p, F, flick);
+    // 最高的几栋楼顶上有天线和闪烁的航空灯
+    if (h >= H * 0.72) {
+      const [x, y] = xy((u0 + u1) / 2, (v0 + v1) / 2, h);
+      const tip = y - 10 * win;
+      shapes += `<path d="M${r2(x)} ${r2(y)}V${r2(tip)}" stroke="${t.dim}" stroke-width="${r2(win)}" opacity=".7"/><circle class="beacon" cx="${r2(x)}" cy="${r2(tip)}" r="${r2(1.6 * win)}" fill="${t.city.beacon}"/>`;
+    }
+    blocks.push(`<g class="rise" ${delay(0.2 + X * 0.022)}>${shapes}</g>`);
   }
 
   // 地面靠近观众的两条边画成发光的线
-  const edge = `M${pt(0, 0)}L${pt(0, 7)}L${pt(weeks, 7)}`;
-  const labelY = g.phone ? 12 : 16;
+  const edge = `M${pt(xy(0, 7))}L${pt(xy(weeks, 7))}L${pt(xy(weeks, 0))}`;
+  // 月份写在左下那条边的外面，星期写在右下那条边的外面
+  const size = g.small - 2;
   const months: string[] = [];
   let lastX = -99;
   for (const { d, X } of cells) {
     if (!d.date.endsWith('-01') || X - lastX < (g.phone ? 7 : 3)) continue;
     lastX = X;
+    const name = MONTHS[Number(d.date.slice(5, 7)) - 1] ?? '';
     const [x, y] = xy(X + 0.5, 7);
+    // 最左边的月份放不下时往右挪，不压到窗口的边框
+    const end = Math.max(x - 3, g.left + textWidth(name, size));
     months.push(
-      `<text x="${r2(x)}" y="${r2(y + labelY)}" text-anchor="middle" class="faint" font-size="${g.small - 2}">${MONTHS[Number(d.date.slice(5, 7)) - 1]}</text>`,
+      `<text x="${r2(end)}" y="${r2(y + size + 2)}" text-anchor="end" class="faint" font-size="${size}">${name}</text>`,
     );
   }
   const weekdays = g.phone
     ? ''
     : WEEKDAY_LABELS.map(([z, s]) => {
-        const [x, y] = xy(0, z + 0.5);
-        return `<text x="${r2(x - 8)}" y="${r2(y + 4)}" text-anchor="end" class="faint" font-size="${g.small - 2}">${s}</text>`;
+        const [x, y] = xy(weeks, z + 0.5);
+        return `<text x="${r2(x + 7)}" y="${r2(y + size - 1)}" class="faint" font-size="${size}">${s}</text>`;
       }).join('');
 
   const markup = `<g fill="${t.panel}">${ground.join('')}</g>
 <path d="${edge}" fill="none" stroke="${t.accent}" stroke-width="3" opacity=".3" filter="url(#soft)"/>
 <path d="${edge}" fill="none" stroke="${t.accent}" stroke-opacity=".45"/>
-${bars.join('\n')}
+${blocks.join('\n')}
 <g class="in" ${delay(0.6)}>${months.join('')}${weekdays}</g>`;
-  return [markup, r2(oy + 7 * P.dy + labelY)];
+  return { markup, bottom: r2(xy(weeks, 7)[1] + size + 4), horizon: [xy(0, 7), xy(0, 0), xy(weeks, 0)] };
 }
 
-/** 底部一行：左边是日期范围，右边是颜色图例 */
-function legend(g: Geo, c: Ctx, y: number): string {
+/** 底部：日期范围、颜色图例，以及天色、天气和日出日落时间（手机版天色单独一行）；返回标记和最后一行的位置 */
+function legend(g: Geo, c: Ctx, y: number): [string, number] {
   const size = g.small - 1;
   const sq = g.phone ? 9 : 10;
   const gap = 3;
   const colors = [t.panel, ...t.levels];
-  const xMore = g.right - textWidth('more', size);
-  const x0 = xMore - 8 - colors.length * (sq + gap) + gap;
-  const squares = colors
-    .map((fill, i) => `<rect x="${r2(x0 + i * (sq + gap))}" y="${y - sq + 1}" width="${sq}" height="${sq}" rx="2" fill="${fill}"/>`)
-    .join('');
   const range = `${c.days[0]?.date ?? ''} – ${c.days.at(-1)?.date ?? ''}`;
-  return `<g class="in" ${delay(1.2)}><text x="${g.left}" y="${y}" class="faint" font-size="${size}">${range}</text><text x="${r2(x0 - 8)}" y="${y}" text-anchor="end" class="faint" font-size="${size}">less</text>${squares}<text x="${r2(xMore)}" y="${y}" class="faint" font-size="${size}">more</text></g>`;
+  let sky = '';
+  let rowY = y;
+  if (c.sky) {
+    sky = g.phone
+      ? `<text x="${g.left}" y="${y}" class="dim" font-size="${size}">${skyText(c.sky)}</text>`
+      : `<text x="${g.right}" y="${y}" text-anchor="end" class="dim" font-size="${size}">${skyText(c.sky)}</text>`;
+    if (g.phone) rowY = y + size + 10;
+  }
+  // 图例平时靠右；桌面版右边要写天色时，接在日期范围后面
+  const keyW = textWidth('less', size) + 8 + colors.length * (sq + gap) - gap + 8 + textWidth('more', size);
+  const x0 = c.sky && !g.phone ? g.left + textWidth(range, size) + 32 : g.right - keyW;
+  const sx = x0 + textWidth('less', size) + 8;
+  const squares = colors
+    .map((fill, i) => `<rect x="${r2(sx + i * (sq + gap))}" y="${rowY - sq + 1}" width="${sq}" height="${sq}" rx="2" fill="${fill}"/>`)
+    .join('');
+  const markup = `<g class="in" ${delay(1.2)}><text x="${g.left}" y="${rowY}" class="faint" font-size="${size}">${range}</text><text x="${r2(x0)}" y="${rowY}" class="faint" font-size="${size}">less</text>${squares}<text x="${r2(sx + colors.length * (sq + gap) - gap + 8)}" y="${rowY}" class="faint" font-size="${size}">more</text>${sky}</g>`;
+  return [markup, rowY];
 }
 
 export async function contributions(g: Geo, c: Ctx): Promise<string> {
   const [head, headEnd] = summary(g, c, g.top);
-  const [sky, skyEnd] = skyline(g, c, headEnd + (g.phone ? 20 : 30));
-  const legendY = Math.round(skyEnd + (g.phone ? 24 : 30));
-  const h = up(legendY + (g.phone ? 16 : 22));
-  const body = `${sectionTop(g, 'skyline --last 12mo', '# one building per day')}
+  const top = headEnd + (g.phone ? 18 : 26);
+  const town = city(g, c, top);
+  const right = town.horizon[2] ?? [g.right, top];
+  const stage: Stage = g.phone
+    ? {
+        x0: g.x0,
+        x1: g.x1,
+        y0: top - 8,
+        y1: town.bottom,
+        horizon: town.horizon,
+        high: [g.right - 30, top + 30],
+        low: [g.right - 34, r2(right[1] - 70)],
+        k: 0.6,
+        clouds: [
+          [g.right - 180, top + 22, 0.62],
+          [g.right - 98, top + 62, 0.5],
+          [g.right - 262, top + 10, 0.55],
+          [g.right - 64, top + 104, 0.45],
+        ],
+        plane: { y: top + 14, rise: 14 },
+        stars: { x0: g.left + 100, x1: g.x1, y0: top, y1: top + 110, n: 32 },
+      }
+    : {
+        x0: g.x0,
+        x1: g.x1,
+        y0: top - 12,
+        y1: town.bottom,
+        horizon: town.horizon,
+        high: [g.right - 52, top + 48],
+        low: [g.right - 64, r2(right[1] - 110)],
+        k: 1,
+        clouds: [
+          [g.right - 360, top + 30, 1],
+          [g.right - 210, top + 92, 0.8],
+          [g.right - 500, top + 14, 0.85],
+          [g.right - 130, top + 160, 0.7],
+        ],
+        plane: { y: top + 22, rise: 30 },
+        stars: { x0: g.left + 180, x1: g.x1, y0: top, y1: top + 190, n: 50 },
+      };
+  const sky = scene(c.sky, stage);
+  const [foot, footY] = legend(g, c, Math.round(town.bottom + (g.phone ? 20 : 24)));
+  const h = up(footY + (g.phone ? 16 : 22));
+  const body = `${sectionTop(g, 'skyline --last 1year', '# one building per day')}
 ${head}
-${sky}
-${legend(g, c, legendY)}`;
-  return slice(g, h, body, { title: contributionsAlt(c) });
+${sky.back}
+${town.markup}
+${sky.front}
+${foot}`;
+  return slice(g, h, body, { title: contributionsAlt(c), css: `${CSS}\n${sky.css}`, defs: sky.defs });
 }

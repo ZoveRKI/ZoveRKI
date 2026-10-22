@@ -6,8 +6,9 @@
 // REST 接口和贡献日历页面，这时拿不到「活动概览」的细分数据。每个数据源单独抓取，
 // 失败了就沿用上一次的数据，主页上不会出现空白。
 import { config } from './config.ts';
-import { readSnapshot, SNAPSHOT_PATH, type Snapshot, writeSnapshot } from './data.ts';
+import { readSnapshot, SNAPSHOT_PATH, type Sky, type Snapshot, writeSnapshot } from './data.ts';
 import { fetchCalendarPage, fetchGraphql, fetchRestRepos, fetchRestUser, githubToken } from './github.ts';
+import { fetchWeather, skyAt } from './sky.ts';
 
 /** 失败时打印警告并返回 null；在 GitHub Actions 里显示成 warning 注释 */
 async function attempt<T>(label: string, run: () => Promise<T>): Promise<T | null> {
@@ -34,6 +35,14 @@ const repos = gql?.repos ?? (await attempt('仓库列表', () => fetchRestRepos(
 const calendar = gql?.calendar ?? (await attempt('贡献日历', () => fetchCalendarPage(login))) ?? prev?.calendar ?? null;
 const activity = gql?.activity ?? prev?.activity ?? null;
 const privateLanguages = gql?.privateLanguages ?? prev?.privateLanguages ?? [];
+// 天色按现在的时间算；天气抓取失败时沿用上一次的
+const { location } = config;
+const sky: Sky | null = location
+  ? {
+      ...skyAt(Date.now(), location),
+      weather: (await attempt('天气', () => fetchWeather(location))) ?? prev?.sky?.weather ?? null,
+    }
+  : null;
 
 if (!user && !calendar) {
   console.error('用户信息和贡献日历都没有拿到，也没有上一次的数据，无法生成主页');
@@ -48,6 +57,7 @@ const snapshot: Snapshot = {
   calendar,
   activity,
   privateLanguages,
+  sky,
 };
 await writeSnapshot(snapshot);
 
@@ -57,4 +67,9 @@ console.log(`已写入 ${SNAPSHOT_PATH}：公开仓库 ${repos.length} 个，贡
 // 只打印数量，私有仓库的名字不出现在日志里
 console.log(
   `私有仓库：提交 ${activity?.privateCommits ?? 0} 次，语言 ${privateLanguages.length} 种；令牌看不到的私有贡献 ${activity?.restricted ?? 0} 次`,
+);
+console.log(
+  sky
+    ? `天色：${sky.phase}（${sky.event} ${sky.at}），天气：${sky.weather ?? '无'}`
+    : '没有配置 location：贡献城市一直是没有天气的夜晚',
 );
