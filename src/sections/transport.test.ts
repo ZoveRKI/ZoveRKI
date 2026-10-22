@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Iso, Painter, Pt } from './landscape.ts';
-import { ROAD } from './landscape.ts';
+import { landscape, ROAD } from './landscape.ts';
 import { RAIL, transport } from './transport.ts';
 
 const painter: Painter = { paint: (c) => c, phase: 'night', lights: true, snow: false };
@@ -29,7 +29,22 @@ function points(markup: string): Pt[] {
   for (const [, x, y, radius] of markup.matchAll(/cx="([-\d.]+)" cy="([-\d.]+)" r="([\d.]+)"/g)) {
     for (const dx of [-Number(radius), Number(radius)]) for (const dy of [-Number(radius), Number(radius)]) vertices.push([Number(x) + dx, Number(y) + dy]);
   }
+  for (const [, x, y, rx, ry] of markup.matchAll(/cx="([-\d.]+)" cy="([-\d.]+)" rx="([\d.]+)" ry="([\d.]+)"/g)) {
+    for (const dx of [-Number(rx), Number(rx)]) for (const dy of [-Number(ry), Number(ry)]) vertices.push([Number(x) + dx, Number(y) + dy]);
+  }
   return vertices;
+}
+
+function outside(iso: Iso, vertices: Pt[]): boolean {
+  assert.ok(vertices.length > 8, '没有提取到完整交通工具');
+  return vertices.every(([x]) => x < iso.x0) || vertices.every(([x]) => x > iso.x1) || vertices.every(([, y]) => y < iso.y0) || vertices.every(([, y]) => y > iso.y1 + 0.65 * iso.k);
+}
+
+/** SVG 默认变换在动画尚未开始、处于正延迟或减少动态效果时同样有效 */
+function initialPoints(markup: string): Pt[] {
+  const offset = markup.match(/transform="translate\(([-\d.]+),([-\d.]+)\)"/);
+  assert.ok(offset, '缺少画外的默认位置');
+  return points(markup).map(([x, y]) => [x + Number(offset[1]), y + Number(offset[2])]);
 }
 
 function waterCoordinate(iso: Iso, [x, y]: Pt): number {
@@ -38,21 +53,59 @@ function waterCoordinate(iso: Iso, [x, y]: Pt): number {
   return ((y - oy) * 2 - (x - ox)) / (2 * unit);
 }
 
-test('两种画幅下五艘船静止时都在画面内，覆盖渡轮、快艇、帆船和渔船', () => {
+test('两种画幅下五艘船从画外依次入场，正延迟期间和关闭动画时也不会出现在海面中间', () => {
   for (const phone of [false, true]) {
     const iso = projection(phone);
-    const { boats } = transport(iso, painter);
+    const { boats, css } = transport(iso, painter);
     const ships = boats.split(/<g class="boat" data-vessel="/).slice(1);
     assert.equal(ships.length, 5);
     assert.deepEqual(new Set(ships.map((s) => s.split('"')[0])), new Set(['ferry', 'speedboat', 'sailboat', 'fishing']));
-    for (const ship of ships) {
-      const vertices = points(ship);
-      assert.ok(vertices.length > 20);
-      for (const [x, y] of vertices) {
-        assert.ok(x > iso.x0 && x < iso.x1 && y > iso.y0 && y < iso.y1 - 24 * iso.k, `静止的 ${ship.slice(0, 12)} 越界：${x},${y}`);
-      }
+    for (const [i, ship] of ships.entries()) {
+      assert.ok(outside(iso, initialPoints(ship)), `第 ${i + 1} 艘船在入场前已经可见`);
+      assert.ok(Number(ship.match(/animation-delay:([-\d.]+)s/)?.[1]) >= 0, '不应跳过首次入场');
+      const start = css.match(new RegExp(`@keyframes zsail${i}\\{0%\\{transform:translate\\(([-\\d.]+)px,([-\\d.]+)px\\)`));
+      const fallback = ship.match(/transform="translate\(([-\d.]+),([-\d.]+)\)"/);
+      assert.deepEqual(start?.slice(1), fallback?.slice(1), '默认位置和动画首帧不一致');
     }
   }
+});
+
+test('汽车入场前连头灯光束也在画外，六辆车均不使用负延迟', () => {
+  for (const phone of [false, true]) {
+    const iso = projection(phone);
+    const { traffic } = landscape(iso, null);
+    const cars = [...traffic.matchAll(/<g class="(ca|cb)" style="animation-delay:([-\d.]+)s">(.*?)<\/g>/g)];
+    assert.equal(cars.length, 6);
+    for (const [, lane, delay, car = ''] of cars) {
+      assert.ok(Number(delay) >= 0, `${lane} 跳过了首次入场`);
+      assert.ok(outside(iso, points(car)), `${lane} 的车身或头灯光束在加载时已经可见`);
+    }
+  }
+});
+
+test('高铁和电车都从画外开始，等待发车和关闭动画时也保持在画外', () => {
+  for (const phone of [false, true]) {
+    const iso = projection(phone);
+    const network = transport(iso, painter);
+    for (const name of ['express', 'tram'] as const) {
+      const markup = (name === 'express' ? network.back : network.tram).match(new RegExp(`<g class="${name}"[^>]*>.*?<\\/g>`))?.[0] ?? '';
+      assert.ok(outside(iso, initialPoints(markup)), `${name} 的首帧已经在轨道中间`);
+      assert.ok(Number(markup.match(/animation-delay:([-\d.]+)s/)?.[1]) >= 0);
+    }
+  }
+});
+
+test('电车入场后仍在两端停站，出场后从相同的画外位置开始下一个循环', () => {
+  const { css } = transport(projection(false), painter);
+  const keys = css.match(/@keyframes ztram\{(.*?)\n/)?.[1] ?? '';
+  const frames = new Map([...keys.matchAll(/([\d.,%]+)\{transform:translate\(([-\d.]+)px,([-\d.]+)px\)/g)]
+    .flatMap(([, times = '', x, y]) => times.split(',').map(time => [Number(time.replace('%', '')), [Number(x), Number(y)]] as const)));
+  assert.equal(frames.size, 8);
+  assert.deepEqual(frames.get(0), frames.get(100));
+  assert.notDeepEqual(frames.get(0), frames.get(6));
+  assert.notDeepEqual(frames.get(6), frames.get(47));
+  for (const time of [12, 88, 94]) assert.deepEqual(frames.get(6), frames.get(time));
+  assert.deepEqual(frames.get(47), frames.get(53));
 });
 
 test('整条航线连船帆和尾迹也有安全间隔，任意动画相位都不会相撞、越岸或穿过码头', () => {

@@ -37,19 +37,26 @@ function span(iso: Iso, v: number, z = 0): Pt {
   return [Math.max((iso.x0 - x) / (ux - x), (iso.y0 - y) / (uy - y)), Math.min((iso.x1 - x) / (ux - x), (iso.y1 - y) / (uy - y))];
 }
 
-/** 相对一个画面内的静止位置运动；关闭动画后，列车仍在轨道上 */
-function travel(iso: Iso, v: number, z: number, from: number, to: number, rest: number, name: string, seconds: number, shuttle = false): Drawing & { u: number } {
-  const u = from + (to - from) * rest;
+/** 锚点只用于绘制车厢；默认变换与动画首帧都指向画外，等待入场或关闭动画时也不会闪现在轨道中间 */
+function travel(iso: Iso, v: number, z: number, from: number, to: number, anchor: number, name: string, seconds: number, shuttle = false, delay = 0): Drawing & { u: number } {
+  const u = from + (to - from) * anchor;
   const [x, y] = iso.xy(u, v, z);
-  const move = (n: number): string => {
+  const offset = (n: number): Pt => {
     const p = iso.xy(n, v, z);
-    return `transform:translate(${r2(p[0] - x)}px,${r2(p[1] - y)}px)`;
+    return [r2(p[0] - x), r2(p[1] - y)];
   };
-  const keys = shuttle ? `0%,6%,100%{${move(from)}}47%,53%{${move(to)}}94%{${move(from)}}` : `from{${move(from)}}to{${move(to)}}`;
+  const move = (n: number): string => {
+    const [dx, dy] = offset(n);
+    return `transform:translate(${dx}px,${dy}px)`;
+  };
+  const entry = shuttle ? span(iso, v, z)[0] - 3 : from;
+  // 电车先从画外进站，在两端停靠后沿原路离开画面；首尾位置相同，循环时不会跳变。
+  // 96 秒的循环把额外时间留给进出站，站间运行时间与原来的 82 秒版本接近。
+  const keys = shuttle ? `0%,100%{${move(entry)}}6%,12%,88%,94%{${move(from)}}47%,53%{${move(to)}}` : `from{${move(from)}}to{${move(to)}}`;
   return {
     u,
-    svg: `class="${name}" style="animation-delay:${r2(-seconds * (shuttle ? 0.06 + 0.41 * rest : rest))}s"`,
-    css: `@keyframes z${name}{${keys}}\n.${name}{animation:z${name} ${seconds}s linear infinite}`,
+    svg: `class="${name}" transform="translate(${pt(offset(entry))})" style="animation-delay:${delay}s"`,
+    css: `@keyframes z${name}{${keys}}\n.${name}{animation:z${name} ${seconds}s linear infinite both}`,
   };
 }
 
@@ -168,15 +175,15 @@ function harbor(iso: Iso, P: Painter): string {
   return `<g data-layer="harbor" data-landmark="harbor">${pier}<g data-landmark="lighthouse">${svg}</g></g>`;
 }
 
-type Vessel = { kind: 'ferry' | 'speedboat' | 'sailboat' | 'fishing'; lane: number; bend: number; drift: number; reverse: boolean; seconds: number; rest: number; color: string };
+type Vessel = { kind: 'ferry' | 'speedboat' | 'sailboat' | 'fishing'; lane: number; bend: number; drift: number; reverse: boolean; seconds: number; anchor: number; color: string };
 
 /** 从远到近排列的独立航道。弯度限制在各自走廊内，连船帆和完整尾迹的投影也不交叉 */
 const FLEET: Vessel[] = [
-  { kind: 'ferry', lane: 13.5, bend: 0.16, drift: 0.3, reverse: false, seconds: 104, rest: 0.48, color: t.red },
-  { kind: 'fishing', lane: 17.5, bend: 0.18, drift: -0.3, reverse: true, seconds: 122, rest: 0.3, color: t.yellow },
-  { kind: 'speedboat', lane: 21.8, bend: 0.22, drift: 0.6, reverse: true, seconds: 38, rest: 0.38, color: t.cyan },
-  { kind: 'sailboat', lane: 26.8, bend: 0.12, drift: 0.4, reverse: false, seconds: 156, rest: 0.42, color: '#d0dbe8' },
-  { kind: 'speedboat', lane: 31.3, bend: 0.18, drift: 0.4, reverse: false, seconds: 49, rest: 0.5, color: t.accent2 },
+  { kind: 'ferry', lane: 13.5, bend: 0.16, drift: 0.3, reverse: false, seconds: 104, anchor: 0.48, color: t.red },
+  { kind: 'fishing', lane: 17.5, bend: 0.18, drift: -0.3, reverse: true, seconds: 122, anchor: 0.3, color: t.yellow },
+  { kind: 'speedboat', lane: 21.8, bend: 0.22, drift: 0.6, reverse: true, seconds: 38, anchor: 0.38, color: t.cyan },
+  { kind: 'sailboat', lane: 26.8, bend: 0.12, drift: 0.4, reverse: false, seconds: 156, anchor: 0.42, color: '#d0dbe8' },
+  { kind: 'speedboat', lane: 31.3, bend: 0.18, drift: 0.4, reverse: false, seconds: 49, anchor: 0.5, color: t.accent2 },
 ];
 
 /** 船舷、甲板、船舱、帆和尾迹都在地面坐标中定向，桅杆始终竖直 */
@@ -235,21 +242,23 @@ function fleet(iso: Iso, P: Painter): Drawing {
   const css: string[] = [`@keyframes zbob{50%{transform:translateY(${r2(-0.65 * iso.k)}px)}}\n.bob{animation:zbob 3.8s ease-in-out infinite}`];
   const ships = FLEET.map((spec, i) => {
     const [a, b] = span(iso, spec.lane);
-    // 最长的快艇尾迹也要完全离开窗口，循环重置才不会在边缘留下断掉的一小截。
-    const [from, to] = spec.reverse ? [b + 8, a - 8] : [a - 8, b + 8];
+    // 入场前船头、桅杆都在画外；离场多留一些空间，让最长的快艇尾迹也完全退出后再循环。
+    const [from, to] = spec.reverse ? [b + 3.5, a - 8] : [a - 3.5, b + 8];
     const route = (f: number): Pt => [from + (to - from) * f, spec.lane + spec.drift * (f - 0.5) + spec.bend * Math.sin(f * Math.PI * 2)];
-    const [u, v] = route(spec.rest);
+    const [u, v] = route(spec.anchor);
     const origin = iso.xy(u, v);
     const du = to - from;
-    const dv = spec.drift + spec.bend * Math.PI * 2 * Math.cos(spec.rest * Math.PI * 2);
+    const dv = spec.drift + spec.bend * Math.PI * 2 * Math.cos(spec.anchor * Math.PI * 2);
     const norm = Math.hypot(du, dv);
     const at: At = (x, y, z = 0) => iso.xy(u + (du * x - dv * y) / norm, v + (dv * x + du * y) / norm, z);
     const frames = Array.from({ length: 17 }, (_, j) => {
       const p = iso.xy(...route(j / 16));
       return `${j * 6.25}%{transform:translate(${r2(p[0] - origin[0])}px,${r2(p[1] - origin[1])}px)}`;
     });
-    css.push(`@keyframes zsail${i}{${frames.join('')}}\n.sail${i}{animation:zsail${i} ${spec.seconds}s linear infinite}`);
-    return `<g class="boat" data-vessel="${spec.kind}"><g class="sail${i}" style="animation-delay:${r2(-spec.rest * spec.seconds)}s"><g class="bob">${vessel(at, P, iso.k, spec)}</g></g></g>`;
+    const entry = iso.xy(...route(0));
+    const start: Pt = [entry[0] - origin[0], entry[1] - origin[1]];
+    css.push(`@keyframes zsail${i}{${frames.join('')}}\n.sail${i}{animation:zsail${i} ${spec.seconds}s linear infinite both}`);
+    return `<g class="boat" data-vessel="${spec.kind}"><g class="sail${i}" transform="translate(${pt(start)})" style="animation-delay:${r2(i * 1.2)}s"><g class="bob">${vessel(at, P, iso.k, spec)}</g></g></g>`;
   });
   return { svg: ships.join(''), css: css.join('\n') };
 }
@@ -262,10 +271,10 @@ export function transport(iso: Iso, P: Painter): {
   const { xy, k, weeks } = iso;
   const z = RAIL.viaduct * k;
   const [a, b] = span(iso, RAIL.express, z);
-  const express = travel(iso, RAIL.express, z, a - 5, b + 5, 0.38, 'express', 34);
+  const express = travel(iso, RAIL.express, z, a - 5, b + 5, 0.38, 'express', 34, false, 1.6);
   const [ta, tb] = span(iso, RAIL.tram);
   const [from, to] = [Math.max(ta + 1.8, -2), Math.min(weeks + 1.3, tb - 2)];
-  const tram = travel(iso, RAIL.tram, 0, from, to, 0.57, 'tram', 82, true);
+  const tram = travel(iso, RAIL.tram, 0, from, to, 0.57, 'tram', 96, true, 2.8);
   const ships = fleet(iso, P);
   let stops = '';
   for (const u of [from, to]) {

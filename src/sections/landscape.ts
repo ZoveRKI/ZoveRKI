@@ -2,7 +2,7 @@
 // 开过的船，交通和两端的车站、灯塔见 transport.ts。坐标都按城市的等距投影算，和楼的透视一致；
 // 树、草、花和浪花的位置用固定的种子生成，不随数据变。
 // 颜色跟着时段和天气变：天黑或天气不好时车灯、路灯和船灯亮着，黎明和黄昏带上天边的颜色，坏天气发灰，
-// 下雪时树梢和草地是白的。新加的船和列车在关掉动画时保留在各自的航线、轨道上。
+// 下雪时树梢和草地是白的。车船和列车从画外陆续进入，关掉动画时和飞机一样停在画外。
 import type { Phase, Sky } from '../data.ts';
 import { mix, r2, random, shade } from '../svg.ts';
 import { theme as t } from '../theme.ts';
@@ -232,21 +232,22 @@ function car(iso: Iso, u: number, v: number, color: string, ahead: boolean, ligh
   return svg;
 }
 
-/** 一条车道上的几辆车：从窗口左边开到画面底边（或者反过来），用负的动画延迟错开 */
+/** 一条车道上的几辆车：从画外开始，用非负延迟错开入场；缓冲区也要容纳完整车灯光束 */
 function lane(iso: Iso, G: Grid, P: Painter, v: number, ahead: boolean, seconds: number, cls: string, next: () => number): { svg: string; css: string } {
   const [ua, ub] = G.span(v);
-  const [from, to] = ahead ? [ua - 1, ub + 1] : [ub + 1, ua - 1];
+  const [from, to] = ahead ? [ua - 3, ub + 3] : [ub + 3, ua - 3];
   const n = 3;
   const cars = Array.from({ length: n }, (_, i) => {
     const color = CARS[Math.floor(next() * CARS.length)] ?? t.bright;
-    const delay = -(seconds * (i + next() * 0.6)) / n;
+    const jitter = next() * 0.6;
+    const delay = (seconds * (i + (i === 0 ? 0 : jitter))) / n;
     return `<g class="${cls}" style="animation-delay:${delay.toFixed(2)}s">${car(iso, from, v, color, ahead, P.lights)}</g>`;
   });
   const d = to - from;
   return {
     svg: cars.join(''),
     css: `@keyframes z${cls}{to{transform:translate(${r2(G.eu[0] * d)}px,${r2(G.eu[1] * d)}px)}}
-.${cls}{animation:z${cls} ${seconds}s linear infinite}`,
+.${cls}{animation:z${cls} ${seconds}s linear infinite both}`,
   };
 }
 
