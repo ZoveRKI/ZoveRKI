@@ -1,13 +1,15 @@
 // 贡献城市周围的景物：背后的草地和树，前面的滨海路和海。路上有来回的车，路边有路灯，海上有慢慢
-// 开过的船。坐标都按城市的等距投影算，和楼的透视一致；树、草、花和浪花的位置用固定的种子生成，不随数据变。
+// 开过的船，交通和两端的车站、灯塔见 transport.ts。坐标都按城市的等距投影算，和楼的透视一致；
+// 树、草、花和浪花的位置用固定的种子生成，不随数据变。
 // 颜色跟着时段和天气变：天黑或天气不好时车灯、路灯和船灯亮着，黎明和黄昏带上天边的颜色，坏天气发灰，
-// 下雪时树梢和草地是白的。车和船在关掉动画时停在画面外面，和飞机一样看不见。
+// 下雪时树梢和草地是白的。车船和列车从画外陆续进入，关掉动画时和飞机一样停在画外。
 import type { Phase, Sky } from '../data.ts';
 import { mix, r2, random, shade } from '../svg.ts';
 import { theme as t } from '../theme.ts';
 import { GRAY, weatherGray } from './scene.ts';
+import { transport } from './transport.ts';
 
-type Pt = [number, number];
+export type Pt = [number, number];
 
 /** 城市的等距投影和画面范围，由 contributions.ts 给出 */
 export type Iso = {
@@ -22,20 +24,18 @@ export type Iso = {
   x1: number;
   y0: number;
   y1: number;
+  /** 原来的海岸画幅底边；扩展轨道空间时按它维持汽车、船原有的行驶速度。 */
+  referenceY1?: number;
 };
 
 /** 城市前面（v 大于 7）的滨海路：路面的内外两边，往右下和往左上的两条车道，以及海岸线 */
-export const ROAD = { inner: 7.1, outer: 7.9, down: 7.32, up: 7.68, coast: 8 };
+export const ROAD = { inner: 7.1, outer: 7.9, down: 7.32, up: 7.68, coast: 9.5 };
 
-/** 船走的航线离岸多远 */
-const SEA_LANE = 12.6;
-
-/** behind 画在楼的后面（草地和树），coast 画在楼之前（海、浪花、海岸线、路、路灯），traffic 画在楼之后（车、船） */
+/** behind 是楼后的绿地、高架和车站，coast 是海和道路、轨道地面，traffic 按前后关系排列街道设施与车船 */
 export type Landscape = { css: string; defs: string; behind: string; coast: string; traffic: string };
 
 const pt = ([x, y]: Pt): string => `${r2(x)},${r2(y)}`;
 const polygon = (list: Pt[], fill: string): string => `<polygon points="${list.map(pt).join(' ')}" fill="${fill}"/>`;
-const lerp = (a: Pt, b: Pt, f: number): Pt => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
 const lift = ([x, y]: Pt, z: number): Pt => [x, y - z];
 
 /** 雪的颜色 */
@@ -46,7 +46,7 @@ const CARS = [t.bright, t.accent, t.red, t.yellow, t.cyan, '#9aa7b8'];
  * 按时段和天气上色：白天偏亮；黎明和黄昏是偏紫的暮色里带一点天边的暖色（直接混橙色会发灰）；
  * 坏天气发灰。天黑或天气不好时开灯
  */
-type Painter = { paint: (c: string, f?: number) => string; phase: Phase; lights: boolean; snow: boolean };
+export type Painter = { paint: (c: string, f?: number) => string; phase: Phase; lights: boolean; snow: boolean };
 
 function painter(sky: Sky | null): Painter {
   const phase = sky?.phase ?? 'night';
@@ -182,8 +182,8 @@ function sea(iso: Iso, P: Painter, G: Grid): { svg: string; defs: string } {
   return { svg: water + waves + glow, defs };
 }
 
-/** 滨海路：路面、两边的路缘、中间的虚线，以及海岸线上每隔四周一盏的路灯（开灯时有一圈光） */
-function road(iso: Iso, P: Painter, G: Grid): { svg: string; glows: string } {
+/** 滨海路：路面、路缘和虚线；路边每隔四周一盏灯，灯杆和光晕单独交给前景绘制 */
+function road(iso: Iso, P: Painter, G: Grid): { svg: string; fixtures: string } {
   const { xy, k } = iso;
   const surface = polygon(
     [xy(G.u0, ROAD.inner), xy(G.u1, ROAD.inner), xy(G.u1, ROAD.outer), xy(G.u0, ROAD.outer)],
@@ -209,7 +209,7 @@ function road(iso: Iso, P: Painter, G: Grid): { svg: string; glows: string } {
     if (P.lights) glows.push(`<circle cx="${r2(x)}" cy="${r2(top + 2 * k)}" r="${r2(11 * k)}" fill="url(#lampglow)"/>`);
   }
   const lamps = `<path d="${poles.join('')}" stroke="${t.faint}" stroke-width="${r2(0.9 * k)}"/>${heads.join('')}`;
-  return { svg: surface + curbs + middle + lamps, glows: glows.join('') };
+  return { svg: surface + curbs + middle, fixtures: glows.join('') + lamps };
 }
 
 /** 一辆车：等距视角的小方块。往右下开的车看得到车头灯（天黑时照出一片光），往左上开的看得到尾灯 */
@@ -234,67 +234,26 @@ function car(iso: Iso, u: number, v: number, color: string, ahead: boolean, ligh
   return svg;
 }
 
-/** 一条车道上的几辆车：从窗口左边开到画面底边（或者反过来），用负的动画延迟错开 */
+/** 一条车道上的几辆车：从画外开始，用非负延迟错开入场；缓冲区也要容纳完整车灯光束 */
 function lane(iso: Iso, G: Grid, P: Painter, v: number, ahead: boolean, seconds: number, cls: string, next: () => number): { svg: string; css: string } {
   const [ua, ub] = G.span(v);
-  const [from, to] = ahead ? [ua - 1, ub + 1] : [ub + 1, ua - 1];
+  if (iso.referenceY1 !== undefined) {
+    const [a, b] = grid({ ...iso, y1: iso.referenceY1 }).span(v);
+    seconds = r2(seconds * (ub - ua + 6) / (b - a + 6));
+  }
+  const [from, to] = ahead ? [ua - 3, ub + 3] : [ub + 3, ua - 3];
   const n = 3;
   const cars = Array.from({ length: n }, (_, i) => {
     const color = CARS[Math.floor(next() * CARS.length)] ?? t.bright;
-    const delay = -(seconds * (i + next() * 0.6)) / n;
+    const jitter = next() * 0.6;
+    const delay = (seconds * (i + (i === 0 ? 0 : jitter))) / n;
     return `<g class="${cls}" style="animation-delay:${delay.toFixed(2)}s">${car(iso, from, v, color, ahead, P.lights)}</g>`;
   });
   const d = to - from;
   return {
     svg: cars.join(''),
     css: `@keyframes z${cls}{to{transform:translate(${r2(G.eu[0] * d)}px,${r2(G.eu[1] * d)}px)}}
-.${cls}{animation:z${cls} ${seconds}s linear infinite}`,
-  };
-}
-
-/** 船：船身、红色的水线、甲板、船舱和桅杆，后面拖着两道尾迹；天黑时船舱的窗户和桅灯亮着。沿着海岸慢慢开过去，轻轻起伏 */
-function boat(iso: Iso, G: Grid, P: Painter): { svg: string; css: string } {
-  const { xy, k } = iso;
-  const v = SEA_LANE;
-  const [ua, ub] = G.span(v);
-  const [from, to] = [ua - 3, ub + 3];
-  const at = (du: number, dv: number, z = 0): Pt => xy(from + du, v + dv, z);
-  const deck = 2.6 * k;
-  const [S1, M1, Tip, M2, S2] = [at(-1, -0.3), at(0.45, -0.3), at(1.1, 0), at(0.45, 0.3), at(-1, 0.3)];
-  const hull = P.paint(t.land.hull);
-  const wake = `<path d="M${pt(at(-1, -0.3))}L${pt(at(-3.6, -0.95))}M${pt(at(-1, 0.3))}L${pt(at(-3.6, 0.95))}M${pt(at(-1, 0))}L${pt(at(-4.2, 0))}" fill="none" stroke="${P.paint(t.land.wave)}" stroke-width="${r2(0.8 * k)}" stroke-linecap="round" stroke-opacity=".3"/>`;
-  let svg =
-    wake +
-    polygon([S2, M2, Tip, lift(Tip, deck), lift(M2, deck), lift(S2, deck)], hull) +
-    polygon([S2, M2, Tip, lift(Tip, deck * 0.32), lift(M2, deck * 0.32), lift(S2, deck * 0.32)], shade(t.red, 0.75)) +
-    polygon([Tip, M1, lift(M1, deck), lift(Tip, deck)], shade(hull, 0.8)) +
-    polygon([S1, M1, Tip, M2, S2].map((p) => lift(p, deck)), P.paint(t.land.deck));
-  // 船舱
-  const cab = 4 * k;
-  const [cT, cR, cB, cL] = [at(-0.75, -0.17, deck), at(-0.05, -0.17, deck), at(-0.05, 0.17, deck), at(-0.75, 0.17, deck)];
-  const cabin = P.paint(t.land.cabin);
-  svg +=
-    polygon([cL, cB, lift(cB, cab), lift(cL, cab)], shade(cabin, 0.8)) +
-    polygon([cB, cR, lift(cR, cab), lift(cB, cab)], shade(cabin, 0.6)) +
-    polygon([cT, cR, cB, cL].map((p) => lift(p, cab)), cabin);
-  const glass = P.lights ? t.land.lamp : shade(t.land.deck, 0.8);
-  for (const s of [0.12, 0.42, 0.72]) {
-    svg += polygon([lerp(cL, cB, s), lerp(cL, cB, s + 0.16), lift(lerp(cL, cB, s + 0.16), cab * 0.55), lift(lerp(cL, cB, s), cab * 0.55)].map((p) => lift(p, cab * 0.2)), glass);
-  }
-  // 桅杆和桅灯
-  const [mx, my] = lift(lerp(cT, cB, 0.5), cab);
-  svg += `<path d="M${r2(mx)} ${r2(my)}V${r2(my - 7 * k)}" stroke="${t.dim}" stroke-width="${r2(0.8 * k)}"/><circle cx="${r2(mx)}" cy="${r2(my - 7 * k)}" r="${r2(1.1 * k)}" fill="${P.lights ? t.bright : t.faint}"/>`;
-  if (P.lights) {
-    const [rx, ry] = lift(lerp(M2, Tip, 0.5), deck * 0.7);
-    svg += `<circle cx="${r2(rx)}" cy="${r2(ry)}" r="${r2(0.8 * k)}" fill="#ff4d5e"/>`;
-  }
-  const d = to - from;
-  return {
-    // 动画先走了三成，打开页面时船已经在海上
-    svg: `<g class="boat" style="animation-delay:-28s"><g class="bob">${svg}</g></g>`,
-    css: `@keyframes zsail{to{transform:translate(${r2(G.eu[0] * d)}px,${r2(G.eu[1] * d)}px)}}
-@keyframes zbob{50%{transform:translateY(${r2(-0.8 * k)}px)}}
-.boat{animation:zsail 90s linear infinite}.bob{animation:zbob 3.2s ease-in-out infinite}`,
+.${cls}{animation:z${cls} ${seconds}s linear infinite both}`,
   };
 }
 
@@ -310,7 +269,7 @@ export function landscape(iso: Iso, sky: Sky | null): Landscape {
   const next = random('cars');
   const down = lane(iso, G, P, ROAD.down, true, 24, 'ca', next);
   const up = lane(iso, G, P, ROAD.up, false, 30, 'cb', next);
-  const ship = boat(iso, G, P);
+  const network = transport(iso, P);
   const defs = [
     waters.defs,
     // 画面底边淡出，窗口左右两边截齐
@@ -324,13 +283,15 @@ export function landscape(iso: Iso, sky: Sky | null): Landscape {
 .w0{animation:zwave 4s ease-in-out infinite}.w1{animation:zwave 5.5s ease-in-out 1.5s infinite}.w2{animation:zwave 7s ease-in-out 3s infinite}`,
     down.css,
     up.css,
-    ship.css,
+    network.css,
   ];
   return {
     css: css.join('\n'),
     defs: defs.join('\n'),
-    behind: `<g class="in" style="animation-delay:.3s" clip-path="url(#frame)">${park(iso, P)}</g>`,
-    coast: `<g class="in" style="animation-delay:.25s"><g mask="url(#land)">${waters.svg}${street.svg}${street.glows}</g></g>`,
-    traffic: `<g mask="url(#land)">${down.svg}${up.svg}${ship.svg}</g>`,
+    behind: `<g class="in" style="animation-delay:.3s" clip-path="url(#frame)"><g mask="url(#land)">${network.back}${park(iso, P)}${network.landmarks}</g></g>`,
+    coast: `<g class="in" style="animation-delay:.25s"><g mask="url(#land)">${waters.svg}${street.svg}${network.shore}</g></g>`,
+    // 沿 v 从城市一侧往海上画：汽车、路灯、站棚、电车、接触网杆、码头、船。
+    // 站棚和灯杆有高度，若与地面一起提前画，会被后画的汽车、电车错误覆盖。
+    traffic: `<g mask="url(#land)"><g data-layer="cars">${down.svg}${up.svg}</g><g data-layer="street-lamps">${street.fixtures}</g>${network.platforms}${network.tram}${network.overhead}${network.harbor}${network.boats}</g>`,
   };
 }

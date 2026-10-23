@@ -207,15 +207,48 @@ function cloud(x: number, y: number, size: number, k: number, i: number, [rim, f
   return `<g class="c${i % 3}"><g fill="none" stroke="${rim}" stroke-width="${r2(4 * k)}" opacity=".35" filter="url(#soft)">${parts}</g><g fill="none" stroke="${rim}" stroke-width="${r2(1.8 * k)}">${parts}</g><g fill="${fill}">${parts}</g></g>`;
 }
 
-/** 飞机：一道灰色的机身，两头的灯一红一白地闪。停在窗口左边外面，关掉动画时看不见 */
+/** 两架远处的双发客机共用 48 秒循环，沿不同曲线飞行；保留原来的红白闪灯。 */
 function plane(st: Stage): Part {
   const k = st.k;
-  const len = 14 * k;
+  const width = st.x1 - st.x0;
+  const bezier = (f: number, values: number[]): number => (1 - f) ** 3 * values[0]! + 3 * (1 - f) ** 2 * f * values[1]! + 3 * (1 - f) * f * f * values[2]! + f ** 3 * values[3]!;
+  const routes = [
+    { seconds: 26, reverse: false, point: (f: number): [number, number] => [st.x0 - 40 * k + (width + 80 * k) * f, st.plane.y - st.plane.rise * f - 2 * k * Math.sin(f * Math.PI)] },
+    { seconds: 34, reverse: true, point: (f: number): [number, number] => [
+      bezier(f, [st.x1 + 48 * k, st.x0 + width * .68, st.x0 + width * .3, st.x0 - 48 * k]),
+      bezier(f, [st.plane.y + width * .31, st.plane.y + width * .19, st.plane.y - 6 * k, st.plane.y - 8 * k]),
+    ] },
+  ];
+  const css: string[] = [];
+  const aircraft = routes.map((route, i) => {
+    const position = (f: number): string => {
+      const p = route.point(f);
+      const a = route.point(Math.max(0, f - .0001));
+      const b = route.point(Math.min(1, f + .0001));
+      const direction = route.reverse ? -1 : 1;
+      const angle = Math.atan2((b[1] - a[1]) * direction, (b[0] - a[0]) * direction) * 180 / Math.PI;
+      return `translate(${r2(p[0])}px,${r2(p[1])}px) rotate(${r2(angle)}deg)`;
+    };
+    // 飞出后留在画外，下一轮同时从两侧入场，避免两条航线在左端接近时发生相遇。
+    const frames = Array.from({ length: 49 }, (_, j) => `${r2(j / 48 * route.seconds / 48 * 100)}%{transform:${position(j / 48)}}`);
+    css.push(`@keyframes zflight${i}{${frames.join('')}100%{transform:${position(1)}}}`);
+    const start = position(0).replaceAll('px', '').replaceAll('deg', '');
+    return { i, route, start };
+  });
+  // 模型以机身中心为原点，转弯时机头随曲线切线转向，反向飞机用镜像保留尾翼的朝上方向。
+  const wings = `<path d="M13 .2L7.2 -4.8H5.3L8.6 .8Z" fill="${t.faint}"/><rect x="9.4" y="-2.2" width="4" height="1.3" rx=".6" fill="${t.dim}"/><path d="M4 .8L1 -1.7H-.2L1.4 1.4ZM4.8 1.5L1.6 3.5H-.5L1.3 1.2Z" fill="${t.faint}"/>`;
+  const body = `<path d="M0 .4L3 -.2H19.2Q22 -.2 24 1Q22.5 2.5 19.2 2.5L3 2Z" fill="${t.dim}"/><path d="M2 1.4L19.2 1.7Q22.2 1.7 24 1Q22.5 2.5 19.2 2.5L3 2Z" fill="${t.faint}"/><path d="M3 .1H19" stroke="${t.fg}" stroke-width=".5" opacity=".6"/>`;
+  const cockpit = `<path d="M20 .1L21.6 .4 22.5 1H20Z" fill="${t.panel}"/>`;
+  const windows = [5.5, 7.5, 9.5, 11.5, 13.5, 15.5, 17.5]
+    .map((x) => `<rect x="${x}" y=".5" width=".7" height=".7" rx=".2" fill="${t.panel}"/>`)
+    .join('');
+  const near = `<path d="M1.3 .3L2.1 -3.6H3.3L6 .3Z" fill="${t.accent}" opacity=".7"/><path d="M16.2 1.5L7.3 5.2H5.3L10.5 1.1Z" fill="${t.dim}"/><path d="M10.5 1.2L6.4 4.8" stroke="${t.fg}" stroke-width=".4" opacity=".5"/><rect x="10.7" y="3.1" width="4.6" height="1.6" rx=".8" fill="${t.faint}"/><path d="M14.4 3.3V4.5" stroke="${t.panel}" stroke-width=".7"/>`;
+  const model = `${wings}${body}${cockpit}${windows}${near}<circle class="blip" cx="0" cy="1" r="1.6" fill="#ff7b72"/><circle class="blip" cx="24" cy="1" r="1.6" fill="#f0f6fc" style="animation-delay:.7s"/>`;
   return {
-    css: `@keyframes zfly{from{transform:translate(${st.x0 - 10}px,0)}to{transform:translate(${st.x1 + 70}px,${-st.plane.rise}px)}}
+    css: `${css.join('\n')}
 @keyframes zblip{0%,90%,100%{opacity:0}93%{opacity:1}}
-.plane{animation:zfly 26s linear infinite}.blip{animation:zblip 1.4s infinite}`,
-    svg: `<g clip-path="url(#frame)"><g class="plane"><g transform="translate(-30 ${st.plane.y})"><rect width="${r2(len)}" height="${r2(2 * k)}" rx="${r2(k)}" fill="${t.faint}"/><circle class="blip" cx="0" cy="${r2(k)}" r="${r2(1.6 * k)}" fill="#ff7b72"/><circle class="blip" cx="${r2(len)}" cy="${r2(k)}" r="${r2(1.6 * k)}" fill="#f0f6fc" style="animation-delay:.7s"/></g></g></g>`,
+.plane{animation:zflight0 48s linear infinite both}.blip{animation:zblip 1.4s infinite}`,
+    svg: `<g clip-path="url(#frame)">${aircraft.map(({ i, route, start }) => `<g class="plane" data-flight="${i}" transform="${start}" style="animation-name:zflight${i}"><g transform="scale(${route.reverse ? -k : k} ${k})"><g transform="translate(-12 0)">${model}</g></g></g>`).join('')}</g>`,
   };
 }
 
