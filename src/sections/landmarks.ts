@@ -42,6 +42,32 @@ function cone(n: number, apex: Pt, rim: (a: number) => Pt, colors: string[], lig
     .map(i => polygon([apex, rim(i * step), rim((i + 1) * step)], shade(colors[i % colors.length]!, 1 - light + light * Math.cos((i + .5) * step - Math.PI * .6)))).join('');
 }
 
+/** 一丛竹子：四根略带弧度的竹竿、竹节和两色竹叶；(u, v) 是竹丛的根部，flip 把竹竿的倾斜和竹叶的朝向左右翻过来 */
+export function bamboo(iso: Iso, P: Painter, u: number, v: number, flip = false): string {
+  const { xy, k } = iso;
+  const mirror = flip ? -1 : 1;
+  const culms: string[] = [];
+  const nodes: string[] = [];
+  const leaves: string[][] = [[], []];
+  for (const [du, dv, height, lean] of [[-.12, .1, 15, -1.2], [-.03, -.05, 21, .3], [.06, .06, 18, 1.1], [.13, -.07, 12, 1.3]]) {
+    const [x, y] = xy(u + du!, v + dv!);
+    const at = (f: number): Pt => [x + mirror * lean! * k * f * f, y - height! * k * f];
+    culms.push(`M${pt([x, y])}Q${pt([x, y - height! * k / 2])} ${pt(at(1))}`);
+    for (let f = .2; f < .95; f += .2) nodes.push(`M${pt([at(f)[0] - .6 * k, at(f)[1]])}L${pt([at(f)[0] + .6 * k, at(f)[1]])}`);
+    for (const [j, f] of [.55, .7, .84, .97].entries()) {
+      const [lx, ly] = at(f);
+      const side = mirror * (j % 2 ? 1 : -1);
+      leaves[j % 2]!.push(`M${pt([lx, ly])}L${pt([lx + side * 2.3 * k, ly + 1.1 * k])}M${pt([lx, ly])}L${pt([lx + side * 1.6 * k, ly - .7 * k])}`);
+    }
+  }
+  let svg = `<path d="${culms.join('')}" fill="none" stroke="${P.paint(P.snow ? '#a9bdb5' : '#6d9a7a')}" stroke-width="${r2(.8 * k)}"/>`;
+  svg += `<path d="${nodes.join('')}" stroke="${P.paint('#4d7a5d')}" stroke-width="${r2(.45 * k)}"/>`;
+  for (const [j, color] of [P.snow ? '#c3d3cc' : '#4d8165', P.snow ? '#d5e2dc' : '#649a7b'].entries()) {
+    svg += `<path d="${leaves[j]!.join('')}" stroke="${P.paint(color)}" stroke-width="${r2(1.05 * k)}" stroke-linecap="round"/>`;
+  }
+  return svg;
+}
+
 /** 在世界坐标里沿边框裁出斜边，地面能贴边，建筑和屋檐仍留在画幅内。 */
 function trim(footprint: Pt[], distance: (p: Pt) => number): Pt[] {
   return footprint.flatMap((b, i) => {
@@ -138,51 +164,36 @@ function pavilion(iso: Iso, P: Painter): { ground: string; building: string } {
   const { xy, k, weeks } = iso;
   const unit = xy(1, 0)[0] - xy(0, 0)[0];
   const right = (iso.x1 - xy(0, 0)[0]) / unit;
-  const v = 5.55;
-  const u = Math.min(weeks + 9.4, right - 12 * k / unit + v - 1.85);
-  // 庭院接到既有广场，并一直铺到右边框、滨海路内沿，保留折角而非方形地基；地面和广场同色，看起来是同一片园地。
+  // 亭子挨着城市右缘，右边留给小公园（见 transport.ts 的 plaza）。位置避开桌面版写在城市右缘外的 Mon、Fri 两个标签，
+  // 屋顶也落在最后一列楼的楼脚以下：楼比亭子后画，挨得太近会把屋顶盖住。
+  const [u, v] = [weeks + 4, 4.65];
+  // 庭院一直铺到右边框、滨海路内沿，保留折角而非方形地基；地面和广场同色，看起来是同一片园地。
   // 前沿停在路面内沿（v = 7.1）里侧一点：不压到路面，也不在两者之间漏出一条深色底色的细缝。
   const outline = trim([[weeks + 5.7, -.05], [right + 9, -.05], [right + 9, 7.09], [weeks + 5.6, 7.09], [weeks + 5.6, 6.4], [weeks + 5.05, 5.85], [weeks + 5.65, 4.8]], ([u, v]) => right - u + v);
-  let ground = polygon(outline.map(([u, v]) => xy(u, v)), plazaGround(P));
-  // 台阶开在右前方那条边上（外法线朝 22.5°）；石板路从最下一级台阶起步，拐个弯垂直接到滨海路内沿，不再从台基底下穿过。
-  const facing = Math.PI / 8;
+  const ground = polygon(outline.map(([u, v]) => xy(u, v)), plazaGround(P));
+  // 台阶开在朝城里的那条边上（外法线朝 112.5°，画面上朝左）；石板路从最下一级台阶起步，拐个弯顺着城市方向接到城市右缘。
+  // 路面画在广场之后，所以和亭子一起放在 building 里，排在最前面。
+  const facing = 5 * Math.PI / 8;
   const local = (x: number, y: number): Pt => [u + x * Math.cos(facing) - y * Math.sin(facing), v + x * Math.sin(facing) + y * Math.cos(facing)];
-  const apothem = 1.22 * Math.cos(facing);
-  const [a, b, c]: Pt[] = [local(apothem + .34, 0), [u + 2.75, 6.5], [u + 2.75, 7.09]];
-  const slabs = Array.from({ length: 13 }, (_, i): [Pt, Pt] => {
-    const s = i / 12;
-    const [pu, pv] = [0, 1].map(axis => (1 - s) ** 2 * a![axis]! + 2 * s * (1 - s) * b![axis]! + s * s * c![axis]!);
-    const [du, dv] = [0, 1].map(axis => (1 - s) * (b![axis]! - a![axis]!) + s * (c![axis]! - b![axis]!));
+  const apothem = 1.22 * Math.cos(Math.PI / 8);
+  const curve: Pt[] = [local(apothem + .34, 0), local(apothem + .89, 0), [weeks + 1.35, 6.45], [weeks + .15, 6.45]];
+  const slabs = Array.from({ length: 25 }, (_, i): [Pt, Pt] => {
+    const s = i / 24;
+    const weights = [(1 - s) ** 3, 3 * (1 - s) ** 2 * s, 3 * (1 - s) * s * s, s ** 3];
+    const slopes = [-3 * (1 - s) ** 2, 3 * (1 - s) ** 2 - 6 * (1 - s) * s, 6 * (1 - s) * s - 3 * s * s, 3 * s * s];
+    const [pu, pv] = [0, 1].map(axis => curve.reduce((sum, p, j) => sum + weights[j]! * p[axis]!, 0));
+    const [du, dv] = [0, 1].map(axis => curve.reduce((sum, p, j) => sum + slopes[j]! * p[axis]!, 0));
     const n = Math.hypot(du!, dv!) / .23;
     return [[pu! - dv! / n, pv! + du! / n], [pu! + dv! / n, pv! - du! / n]];
   });
   const seam = P.paint(P.snow ? '#8c9c9e' : '#59625a');
-  ground += polygon([...slabs.map(([l]) => xy(...l)), ...slabs.map(([, r]) => xy(...r)).reverse()], P.paint(P.snow ? '#a9b9ba' : '#78816f'));
-  ground += `<path d="${slabs.filter((_, i) => i % 2).map(([l, r]) => `M${pt(xy(...l))}L${pt(xy(...r))}`).join('')}" stroke="${seam}" stroke-width="${r2(.4 * k)}"/>`;
-  ground += line(slabs.map(([l]) => xy(...l)), seam, .5 * k) + line(slabs.map(([, r]) => xy(...r)), seam, .5 * k);
+  let svg = polygon([...slabs.map(([l]) => xy(...l)), ...slabs.map(([, r]) => xy(...r)).reverse()], P.paint(P.snow ? '#a9b9ba' : '#78816f'));
+  svg += `<path d="${slabs.filter((_, i) => i % 2).map(([l, r]) => `M${pt(xy(...l))}L${pt(xy(...r))}`).join('')}" stroke="${seam}" stroke-width="${r2(.4 * k)}"/>`;
+  svg += line(slabs.map(([l]) => xy(...l)), seam, .5 * k) + line(slabs.map(([, r]) => xy(...r)), seam, .5 * k);
 
-  // 竹丛贴着右边框，从亭子右后方的屋檐后面探出来；先画，由屋顶盖住重叠的部分。
-  const bambooV = 3.3;
-  const bambooU = right + bambooV - .8;
-  const culms: string[] = [];
-  const nodes: string[] = [];
-  const leaves: string[][] = [[], []];
-  for (const [du, dv, height, lean] of [[-.12, .1, 15, -1.2], [-.03, -.05, 21, .3], [.06, .06, 18, 1.1], [.13, -.07, 12, 1.3]]) {
-    const [x, y] = xy(bambooU + du!, bambooV + dv!);
-    const at = (f: number): Pt => [x + lean! * k * f * f, y - height! * k * f];
-    culms.push(`M${pt([x, y])}Q${pt([x, y - height! * k / 2])} ${pt(at(1))}`);
-    for (let f = .2; f < .95; f += .2) nodes.push(`M${pt([at(f)[0] - .6 * k, at(f)[1]])}L${pt([at(f)[0] + .6 * k, at(f)[1]])}`);
-    for (const [j, f] of [.55, .7, .84, .97].entries()) {
-      const [lx, ly] = at(f);
-      const side = j % 2 ? 1 : -1;
-      leaves[j % 2]!.push(`M${pt([lx, ly])}L${pt([lx + side * 2.3 * k, ly + 1.1 * k])}M${pt([lx, ly])}L${pt([lx + side * 1.6 * k, ly - .7 * k])}`);
-    }
-  }
-  let svg = `<path d="${culms.join('')}" fill="none" stroke="${P.paint(P.snow ? '#a9bdb5' : '#6d9a7a')}" stroke-width="${r2(.8 * k)}"/>`;
-  svg += `<path d="${nodes.join('')}" stroke="${P.paint('#4d7a5d')}" stroke-width="${r2(.45 * k)}"/>`;
-  for (const [j, color] of [P.snow ? '#c3d3cc' : '#4d8165', P.snow ? '#d5e2dc' : '#649a7b'].entries()) {
-    svg += `<path d="${leaves[j]!.join('')}" stroke="${P.paint(color)}" stroke-width="${r2(1.05 * k)}" stroke-linecap="round"/>`;
-  }
+  // 竹丛在亭子右后方，从屋檐后面探出来；先画，由屋顶盖住重叠的部分。手机版右端窄，离边框太近时往城里挪。
+  const bambooV = v - 1.9;
+  svg += bamboo(iso, P, Math.min(u + .6, right + bambooV - 1.2), bambooV);
 
   // 两层八角石台基：下层略宽，上层承托柱子，顶边各描一道浅色石棱；两级踏步，最低一级与下层台基齐平。
   const deck = 3 * k;
@@ -191,7 +202,7 @@ function pavilion(iso: Iso, P: Painter): { ground: string; building: string } {
   svg += line(brink(1.38, 1.1 * k), P.paint('#8a978e'), .45 * k);
   svg += prism(iso, ring(u, v, 1.22, 8), 1.1 * k, deck - 1.1 * k, P.paint('#69766f'), P.paint(P.snow ? '#e0e9ec' : '#7c8981'));
   svg += line(brink(1.22, deck), P.paint('#9eaaa0'), .5 * k);
-  for (const [x0, x1, z0, z1] of [[1.38 * Math.cos(facing) - .02, apothem + .4, 0, 1.1], [apothem - .02, apothem + .2, 1.1, 2.05]]) {
+  for (const [x0, x1, z0, z1] of [[1.38 * Math.cos(Math.PI / 8) - .02, apothem + .4, 0, 1.1], [apothem - .02, apothem + .2, 1.1, 2.05]]) {
     svg += prism(iso, [local(x0!, -.31), local(x1!, -.31), local(x1!, .31), local(x0!, .31)], z0! * k, (z1! - z0!) * k, P.paint('#69766f'), P.paint(P.snow ? '#e3ebee' : '#8a968d'));
   }
   const columns = ring(u, v, .83, 8);
@@ -200,7 +211,7 @@ function pavilion(iso: Iso, P: Painter): { ground: string; building: string } {
     svg += block(iso, cu - .1, cu + .1, cv - .1, cv + .1, 12.7 * k, 1.5 * k, P.paint('#ae8962'));
   }
   // 美人靠：台阶所在的入口之外，朝外的三面各有坐凳和朱红靠栏；背面几面藏在屋檐后面，不必画。
-  for (const i of [7, 1, 2]) {
+  for (const i of [7, 0, 1]) {
     const [p, q] = [columns[i]!, columns[(i + 1) % 8]!];
     const at = (f: number, z: number): Pt => xy(p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f, deck + z * k);
     svg += line([at(0, 1.5), at(1, 1.5)], P.paint('#7b5345'), 1.1 * k) + line([at(0, 3.6), at(1, 3.6)], P.paint('#a9604d'), k);
@@ -237,8 +248,8 @@ function pavilion(iso: Iso, P: Painter): { ground: string; building: string } {
   const top = xy(u, v, 29 * k);
   svg += line([peak, top], P.paint('#c5ad75'), k) + `<circle cx="${r2(top[0])}" cy="${r2(top[1])}" r="${r2(1.1 * k)}" fill="${P.paint('#c5ad75')}"/>`;
 
-  // 台阶旁的石灯笼，夜里灯室透出暖光；小路左边一块太湖石，右边两丛灌木。
-  const [lu, lv] = [u + 1.85, v - .25];
+  // 台阶右前方一盏石灯笼，夜里灯室透出暖光；小路后侧一块太湖石，灯笼旁两丛灌木。
+  const [lu, lv] = local(1.75, -.85);
   const granite = P.paint(P.snow ? '#9eacae' : '#77837d');
   const cap = P.paint(P.snow ? '#e0e9ec' : '#69756f');
   svg += block(iso, lu - .17, lu + .17, lv - .17, lv + .17, 0, k, granite) + block(iso, lu - .07, lu + .07, lv - .07, lv + .07, k, 3.6 * k, granite);
@@ -250,12 +261,12 @@ function pavilion(iso: Iso, P: Painter): { ground: string; building: string } {
   for (const [i, f] of [[0, .9], [3, .95], [1, .62], [2, .8]]) svg += polygon([lid[i!]!, lid[(i! + 1) % 4]!, xy(lu, lv, 8.8 * k)], shade(cap, f!));
   svg += circle(xy(lu, lv, 9.4 * k), .7 * k, cap);
   if (P.lights) svg += circle(xy(lu, lv, 6.3 * k), 4 * k, 'url(#lampglow)');
-  const [rx, ry] = xy(u + 1.4, 6.82);
+  const [rx, ry] = xy(u - 1.5, v + 1.25);
   const stone = (list: number[][]): Pt[] => list.map(([dx, dy]) => [rx + dx! * k, ry + dy! * k]);
   svg += polygon(stone([[-2.3, 0], [-2.7, -2.1], [-1.7, -4.3], [-.5, -5.5], [.9, -4.6], [1.6, -5.9], [2.6, -4.1], [2.1, -1.9], [2.6, 0]]), P.paint(P.snow ? '#b4c2c5' : '#5c6865'));
   svg += polygon(stone([[-2.3, 0], [-2.7, -2.1], [-1.7, -4.3], [-.5, -5.5], [.1, -3.4], [-.7, -1.3], [-1.1, 0]]), P.paint(P.snow ? '#dce5e8' : '#7f8b86'));
   svg += circle([rx + .8 * k, ry - 2.7 * k], .55 * k, P.paint('#3b4644'));
-  for (const [bu, bv, s] of [[u + 3.27, 6.78, 1], [u + 3.55, 6.57, .85]]) {
+  for (const [bu, bv, s] of [[u + .65, v + 2.13, 1], [u + 1, v + 1.9, .85]]) {
     const [x, y] = xy(bu!, bv!);
     svg += circle([x, y - 1.7 * s! * k], 2.6 * s! * k, P.paint(P.snow ? '#b9cac6' : '#2f5a48')) + circle([x - .8 * s! * k, y - 2.4 * s! * k], 1.7 * s! * k, P.paint(P.snow ? '#d9e4e0' : '#3f7258'));
   }

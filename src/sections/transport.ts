@@ -4,7 +4,7 @@ import { r2, shade } from '../svg.ts';
 import { theme as t } from '../theme.ts';
 import type { Iso, Painter, Pt } from './landscape.ts';
 import { railMotion, RAIL_SPEED, type RailFrame } from './rail-motion.ts';
-import { landmarks, plazaGround } from './landmarks.ts';
+import { bamboo, landmarks, plazaGround } from './landmarks.ts';
 
 type Drawing = { svg: string; css: string };
 type At = (u: number, v: number, z?: number) => Pt;
@@ -143,19 +143,76 @@ function station(iso: Iso, P: Painter): { ground: string; building: string } {
   return { ground: `<g data-landmark="station-ground">${ground}</g>`, building: `<g data-landmark="station">${svg}</g>` };
 }
 
-/** 右端的低矮广场：步道、花池、长椅；高低错开，给 Mon/Fri 标签留出空位 */
+type Plant = 'pine' | 'tree' | 'shrub' | 'flowers' | 'grass' | 'bamboo';
+/** 各种植物在画面上从根部往右伸出多远（换算成 u 方向的格数），判断放不放得进画框 */
+const REACH: Record<Plant, number> = { pine: 0.4, tree: 0.4, shrub: 0.35, flowers: 0.35, grass: 0.25, bamboo: 0.7 };
+
+/** 花境里的一株：尖顶树、圆顶树、灌木、开花灌木、观赏草或一丛竹子；(u, v) 是根部，s 是大小，flip 只用于竹子 */
+function plant(iso: Iso, P: Painter, kind: Plant, u: number, v: number, s: number, flip: boolean): string {
+  if (kind === 'bamboo') return bamboo(iso, P, u, v, flip);
+  const [x, y] = iso.xy(u, v);
+  const z = s * iso.k;
+  const disc = (cx: number, cy: number, r: number, fill: string): string => `<circle cx="${r2(cx)}" cy="${r2(cy)}" r="${r2(r)}" fill="${fill}"/>`;
+  if (kind === 'grass') {
+    const blades = [[-1.6, -3.4], [-0.5, -4.4], [0.6, -4.1], [1.7, -3.2]].map(([dx, dy]) => `M${pt([x, y])}L${pt([x + dx! * z, y + dy! * z])}`).join('');
+    return `<path d="${blades}" stroke="${P.paint(P.snow ? '#c9d6d2' : '#5c8f6c')}" stroke-width="${r2(0.55 * z)}" stroke-linecap="round"/>`;
+  }
+  if (kind === 'pine') {
+    const [base, peak] = [y - 2 * z, y - 12 * z];
+    const svg = line([[x, y], [x, base]], P.paint(t.land.trunk), 1.1 * z)
+      + polygon([[x - 3.2 * z, base], [x, peak], [x, base]], P.paint(t.land.tree[0])) + polygon([[x, base], [x, peak], [x + 3.2 * z, base]], P.paint(t.land.tree[1]));
+    return P.snow ? svg + polygon([[x - 1.15 * z, peak + 3.6 * z], [x, peak], [x + 1.15 * z, peak + 3.6 * z]], P.paint('#cfd9e6')) : svg;
+  }
+  if (kind === 'tree') {
+    const crown = y - 6.9 * z;
+    const svg = line([[x, y], [x, y - 4.5 * z]], P.paint(t.land.trunk), 1.1 * z) + disc(x, crown, 3.3 * z, P.paint(t.land.tree[1])) + disc(x - 0.9 * z, crown - 0.8 * z, 2.2 * z, P.paint(t.land.tree[0]));
+    return P.snow ? svg + disc(x - 0.2 * z, crown - 2.1 * z, 1.7 * z, P.paint('#cfd9e6')) : svg;
+  }
+  let svg = disc(x, y - 1.7 * z, 2.6 * z, P.paint(P.snow ? '#b9cac6' : '#2f5a48')) + disc(x - 0.8 * z, y - 2.4 * z, 1.7 * z, P.paint(P.snow ? '#d9e4e0' : '#3f7258'));
+  if (kind === 'flowers' && !P.snow) {
+    [[-1.2, -3.2], [1.1, -2.4], [0.2, -1.2]].forEach(([dx, dy], i) => { svg += disc(x + dx! * z, y + dy! * z, 0.5 * iso.k, P.paint(t.land.flowers[i]!, 0.5)); });
+  }
+  return svg;
+}
+
+/**
+ * 右端的海滨广场：靠城的一侧是亭子的庭院（见 landmarks.ts），靠右边框的一侧是小公园：临路一排花池树和长椅等距交替，
+ * 后面矮石沿围出一方竹床，竹丛错行种满；竹床后面和亭子右后方再围两块种植床，混种成花境，后排高、前排矮。
+ * 只种画框里放得下的：手机版右端窄，只剩一树一椅一丛竹，花境落在边框外就不铺。种植床伸到边框外，由画框裁齐
+ */
 function plaza(iso: Iso, P: Painter): string {
   const { xy, k, weeks: w } = iso;
+  const right = (iso.x1 - xy(0, 0)[0]) / (xy(1, 0)[0] - xy(0, 0)[0]);
+  const fits = (u: number, v: number, margin: number): boolean => right + v - u > margin;
   let svg = polygon([xy(w + 0.15, -0.05), xy(w + 6.4, -0.05), xy(w + 6.4, 7.7), xy(w + 4.3, 9.4), xy(w + 0.15, 9.4)], plazaGround(P));
-  for (const v of [3.2, 5.2, 7.2]) svg += line([xy(w + 0.3, v), xy(w + 6, v)], P.paint('#45515b'), 0.5 * k);
-  svg += line([xy(w + 2.4, 0.2), xy(w + 2.4, 9.2)], P.paint('#53626d'), 0.6 * k);
-  for (const [u, v] of [[w + 3.8, 2.8], [w + 4.9, 5.4]]) {
-    svg += box(xy, u - 0.4, u + 0.4, v - 0.35, v + 0.35, 0, 3 * k, P.paint('#38564d'));
-    const [x, y] = xy(u, v, 7 * k);
-    svg += line([xy(u, v), [x, y]], t.land.trunk, k);
-    svg += `<circle cx="${r2(x)}" cy="${r2(y - 2 * k)}" r="${r2(4.2 * k)}" fill="${P.paint(P.snow ? '#9cafb3' : t.land.tree[0])}"/>`;
+  // 种植床：矮石沿加一层深绿的土面。三块拼成 L 形，先画后面的，前面的床盖住相邻处的石沿侧面
+  const bed = (u0: number, u1: number, v0: number, v1: number): string =>
+    box(xy, u0, u1, v0, v1, 0, 0.8 * k, P.paint(P.snow ? '#7d8b8e' : '#4d5b56'))
+    + polygon([xy(u0 + 0.08, v0 + 0.08, 0.8 * k), xy(u1, v0 + 0.08, 0.8 * k), xy(u1, v1 - 0.08, 0.8 * k), xy(u0 + 0.08, v1 - 0.08, 0.8 * k)], P.paint(P.snow ? '#d6e0e4' : '#2b4a3e'));
+  const plants = ([
+    ['pine', w + 3.35, 0.7, 0.9], ['tree', w + 4.2, 0.6, 0.85], ['bamboo', w + 5, 0.7, 1],
+    ['flowers', w + 3.7, 1.3, 1], ['grass', w + 4.55, 1.2, 1], ['shrub', w + 5.35, 1.3, 1.1], ['flowers', w + 6.15, 1.25, 0.9],
+    ['grass', w + 5.5, 2, 1], ['flowers', w + 5.55, 2.8, 0.9],
+  ] as [Plant, number, number, number][]).filter(([kind, u, v]) => fits(u, v, REACH[kind]));
+  if (plants.some(([, , v]) => v < 1.6)) svg += bed(w + 3, right + 6, 0.25, 1.6);
+  if (plants.some(([, u, v]) => v > 1.6 && u < w + 5.95)) svg += bed(w + 5.15, w + 5.95, 1.6, 3.2);
+  svg += bed(w + 5.95, right + 6, 1.6, 5.75);
+  for (const [row, v] of [2.85, 3.95, 5.05].entries()) {
+    for (let u = w + 6.9 + (row % 2) * 0.55; fits(u, v, REACH.bamboo); u += 1.1) plants.push(['bamboo', u, v, 1]);
   }
-  for (const v of [4.1, 6.6]) svg += box(xy, w + 3.5, w + 5, v, v + 0.3, 2 * k, 1.2 * k, P.paint('#8b7560'));
+  svg += plants.sort((a, b) => a[1] + a[2] - b[1] - b[2]).map(([kind, u, v, s], i) => plant(iso, P, kind, u, v, s, i % 2 === 1)).join('');
+  // 临路一排从左往右：树、椅、树、椅、树，间距一格，都对齐在同一条线上
+  const lane = 6.4;
+  for (let i = 0; i < 5; i++) {
+    const u = w + 6.6 + i;
+    if (i % 2) {
+      if (fits(u + 0.45, lane, 0.3)) svg += box(xy, u - 0.45, u + 0.45, lane - 0.15, lane + 0.15, 2 * k, 1.2 * k, P.paint('#8b7560'));
+    } else if (fits(u, lane, 0.9)) {
+      const [x, y] = xy(u, lane, 7 * k);
+      svg += box(xy, u - 0.4, u + 0.4, lane - 0.35, lane + 0.35, 0, 3 * k, P.paint('#38564d')) + line([xy(u, lane), [x, y]], t.land.trunk, k);
+      svg += `<circle cx="${r2(x)}" cy="${r2(y - 2 * k)}" r="${r2(4.2 * k)}" fill="${P.paint(P.snow ? '#9cafb3' : t.land.tree[0])}"/>`;
+    }
+  }
   return `<g data-landmark="plaza">${svg}</g>`;
 }
 
