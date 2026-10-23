@@ -32,6 +32,14 @@ function prism(iso: Iso, footprint: Pt[], z: number, h: number, color: string, t
   return svg + polygon(footprint.map(p => iso.xy(...p, z + h)), top);
 }
 
+/** 正 n 棱锥形的篷顶：apex 是尖顶，rim(a) 是檐口上角度 a 处的点；各面从远到近画、颜色轮流取 colors，朝左前方的面亮一些 */
+function cone(n: number, apex: Pt, rim: (a: number) => Pt, colors: string[], light: number): string {
+  const step = 2 * Math.PI / n;
+  const near = (i: number): number => Math.sin((i + .5) * step + Math.PI / 4);
+  return Array.from({ length: n }, (_, i) => i).sort((a, b) => near(a) - near(b))
+    .map(i => polygon([apex, rim(i * step), rim((i + 1) * step)], shade(colors[i % colors.length]!, 1 - light + light * Math.cos((i + .5) * step - Math.PI * .6)))).join('');
+}
+
 /** 在世界坐标里沿边框裁出斜边，地面能贴边，建筑和屋檐仍留在画幅内。 */
 function trim(footprint: Pt[], distance: (p: Pt) => number): Pt[] {
   return footprint.flatMap((b, i) => {
@@ -276,24 +284,30 @@ function amusement(iso: Iso, P: Painter): { svg: string; css: string } {
 .chain{animation:zchain .45s linear infinite}`];
   if (P.lights) css.push(`@keyframes zbulb{50%{opacity:.25}}\n.bulb0{animation:zbulb 1.4s ease-in-out infinite}.bulb1{animation:zbulb 1.4s ease-in-out .7s infinite}`);
 
-  // 园区是一块台地，右侧露出厚度；草坪、入口广场、摩天轮下的候车坪和通往过山车站台的步道分开铺装，外圈一道矮栏杆。
-  let svg = polygon([xy(start, -10.5), xy(end, -10.5), xy(end, -5.2), xy(start, -5.2)], P.paint(P.snow ? '#52676b' : '#153133'));
-  svg += polygon([xy(end, -10.5), xy(end, -5.2), xy(end, -5.2, -1.8 * k), xy(end, -10.5, -1.8 * k)], P.paint(P.snow ? '#40555a' : '#0d2123'));
-  svg += line([xy(start, -5.2), xy(end, -5.2), xy(end, -10.5)], P.paint('#477575'), .8 * k);
+  // 园区是一块台地，向右一直铺到边框，沿边框截齐；草坪、入口广场、摩天轮下的候车坪和连到过山车站台的步道分开铺装，外圈一道矮栏杆。
+  const right = (iso.x1 - xy(0, 0)[0]) / unit;
+  const fit = (points: Pt[]): Pt[] => trim(points, ([u, v]) => right - u + v);
+  let svg = polygon(fit([[start, -10.5], [right + 20, -10.5], [right + 20, -5.2], [start, -5.2]]).map(p => xy(...p)), P.paint(P.snow ? '#52676b' : '#153133'));
+  svg += line([xy(start, -5.2), xy(right - 5.2, -5.2)], P.paint('#477575'), .8 * k);
   const lawns: Pt[][] = [
     [[start + .1, -10.4], [hubU - 1.45, -10.4], [hubU - 1.45, -7.3], [start + .1, -7.3]],
     [[hubU - 1.45, -10.4], [start + 5.9, -10.4], [start + 5.9, -8.9], [hubU - 1.45, -8.9]],
     [[start + 7, -8.6], [start + 7.9, -9.15], [start + 9.6, -9.35], [start + 10.85, -8.7], [start + 10.85, -7.4], [start + 10, -6.65], [start + 8, -6.35], [start + 6.75, -6.7], [start + 6.65, -7.6]],
+    fit([[end, -10.4], [right + 20, -10.4], [right + 20, -7.3], [end, -7.3]]),
   ];
   for (const area of lawns) svg += polygon(area.map(p => xy(...p)), P.paint(P.snow ? '#6b8184' : '#183a33'));
   const plaza: Pt[] = [[start + .1, -7.2], [hubU - 1.35, -7.2], [hubU - 1.35, -8.75], [hubU + 1.35, -8.75], [hubU + 1.35, -7.2], [start + 5.8, -7.2], [start + 5.8, -5.62], [start + 6.9, -5.62], [start + 6.9, -5.3], [start + .1, -5.3]];
-  svg += polygon(plaza.map(p => xy(...p)), P.paint(P.snow ? '#879a9d' : '#25423f'));
+  const paving = P.paint(P.snow ? '#879a9d' : '#25423f');
+  svg += polygon(plaza.map(p => xy(...p)), paving);
+  svg += polygon(fit([[start + 8.1, -5.62], [end, -5.62], [end, -7.2], [right + 20, -7.2], [right + 20, -5.3], [start + 8.1, -5.3]]).map(p => xy(...p)), paving);
   let seams = '';
-  for (const v of [-6.72, -6.24, -5.76]) seams += `M${pt(xy(start + .1, v))}L${pt(xy(start + 5.8, v))}`;
+  for (const v of [-6.72, -6.24, -5.76]) seams += `M${pt(xy(start + .1, v))}L${pt(xy(start + 5.8, v))}M${pt(xy(end, v))}L${pt(xy(right + v, v))}`;
   for (let u = start + .65; u < start + 5.8; u += .65) seams += `M${pt(xy(u, -7.2))}L${pt(xy(u, -5.3))}`;
+  for (let u = end + .65; u < right - 5.3; u += .65) seams += `M${pt(xy(u, Math.max(-7.2, u - right)))}L${pt(xy(u, -5.3))}`;
   svg += `<path d="${seams}" stroke="${P.paint(P.snow ? '#9aabae' : '#2e4d4a')}" stroke-width="${r2(.4 * k)}"/>`;
+  // 过山车区的右侧栏杆只围到后半段，前面敞开接右侧的入口广场。
   const fence: string[] = [];
-  for (const [a, b] of [[[start + .06, -7.3], [start + .06, -10.44]], [[start + .06, -10.44], [end - .06, -10.44]], [[end - .06, -10.44], [end - .06, -5.3]]] as [Pt, Pt][]) {
+  for (const [a, b] of [[[start + .06, -7.3], [start + .06, -10.44]], [[start + .06, -10.44], [right - 10.5, -10.44]], [[end - .06, -10.44], [end - .06, -7.3]]] as [Pt, Pt][]) {
     const n = Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / .45);
     fence.push(`M${pt(xy(...a, 1.8 * k))}L${pt(xy(...b, 1.8 * k))}`);
     for (let i = 0; i <= n; i++) {
@@ -501,11 +515,7 @@ function amusement(iso: Iso, P: Painter): { svg: string; css: string } {
   svg += `<g transform="translate(${pt(xy(cu, cv, 1.4 * k))})"><g transform="matrix(1 .5 -1 .5 0 0)"><g class="carousel">${riders}</g></g></g>`;
   const peak = xy(cu, cv, 20.5 * k);
   const brim = (a: number, z: number): Pt => xy(cu + .95 * Math.cos(a), cv + .95 * Math.sin(a), z * k);
-  const stripes = P.snow ? ['#e6edf0', '#cad7dc'] : ['#c95f6d', '#efe1c6'];
-  const facing = (i: number): number => Math.sin((i + .5) * Math.PI / 8 + Math.PI / 4);
-  for (const i of Array.from({ length: 16 }, (_, i) => i).sort((a, b) => facing(a) - facing(b))) {
-    svg += polygon([peak, brim(i * Math.PI / 8, 12), brim((i + 1) * Math.PI / 8, 12)], shade(P.paint(stripes[i % 2]!), .8 + .2 * Math.cos((i + .5) * Math.PI / 8 - Math.PI * .6)));
-  }
+  svg += cone(16, peak, a => brim(a, 12), (P.snow ? ['#e6edf0', '#cad7dc'] : ['#c95f6d', '#efe1c6']).map(c => P.paint(c)), .2);
   let valance = `M${pt(brim(-Math.PI / 4, 12))}`;
   for (let i = -1; i <= 6; i++) valance += `L${pt(brim(i * Math.PI / 8, 12))}`;
   valance += `L${pt(brim(6 * Math.PI / 8, 11.2))}`;
@@ -533,11 +543,72 @@ function amusement(iso: Iso, P: Painter): { svg: string; css: string } {
     const at: Pt = [hand[0] + dx * k, hand[1] - dz * k];
     svg += line([hand, [at[0], at[1] + 1.3 * k]], P.paint('#9aa7b0'), .35 * k) + circle(at, 1.35 * k, P.paint(color)) + circle([at[0] - .4 * k, at[1] - .45 * k], .4 * k, '#ffffff', ' fill-opacity=".45"');
   }
-  for (const du of [.3, 3.04, 4.1, 5.6]) {
-    const head = xy(start + du, -5.45, 6.4 * k);
-    svg += line([xy(start + du, -5.45), head], P.paint('#58707a'), .7 * k);
+  for (const u of [start + .3, start + 3.04, start + 4.1, start + 5.6, end + 1.3]) {
+    const head = xy(u, -5.45, 6.4 * k);
+    svg += line([xy(u, -5.45), head], P.paint('#58707a'), .7 * k);
     if (P.lights) svg += circle(head, 5.5 * k, 'url(#lampglow)');
     svg += circle(head, k, P.lights ? t.land.lamp : P.paint('#93a5ae'));
+  }
+
+  // 右侧一直到边框是入口广场和服务区：后面一座水塔和两棵树；游客中心开着落地窗，门口搭条纹雨篷、两边是花坛，屋顶立着摩天轮标志；
+  // 广场前沿是带售票窗的入口拱门，左边摆两张遮阳伞餐桌。这些都比摩天轮和过山车矮得多，不占飞机的航路。
+  const [wu, wv] = [end + .75, -9.6];
+  const leg = (corner: readonly [number, number], z: number): Pt => xy(wu + corner[0] * (.32 - z / 150), wv + corner[1] * (.32 - z / 150), z * k);
+  let tower = '';
+  for (const corner of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) tower += `M${pt(leg(corner, 0))}L${pt(leg(corner, 18))}`;
+  for (const [a, b] of [[[1, -1], [1, 1]], [[-1, 1], [1, 1]]] as const) for (const z of [0, 6, 12]) tower += `M${pt(leg(a, z))}L${pt(leg(b, z + 6))}M${pt(leg(b, z))}L${pt(leg(a, z + 6))}`;
+  svg += `<path d="${tower}" stroke="${P.paint('#5e7c82')}" stroke-width="${r2(.75 * k)}"/>`;
+  svg += prism(iso, ring(wu, wv, .42, 12), 18 * k, 7 * k, P.paint('#78aab0'), P.paint(P.snow ? '#e0e9ec' : '#8fbcc1'));
+  svg += line([-3, -2, -1, 0, 1, 2, 3].map(i => xy(wu + .425 * Math.cos((i + 1.5) * Math.PI / 6), wv + .425 * Math.sin((i + 1.5) * Math.PI / 6), 21.4 * k)), P.paint('#c95f6d'), 1.4 * k);
+  svg += cone(12, xy(wu, wv, 28.6 * k), a => xy(wu + .47 * Math.cos(a), wv + .47 * Math.sin(a), 25 * k), [P.paint(P.snow ? '#e3ebee' : '#3a7480')], .2);
+  svg += circle(xy(wu, wv, 29.3 * k), .8 * k, t.city.beacon, ' class="beacon"');
+  for (const [u, v, s] of [[end + .2, -8.75, .95], [end + 1.95, -9.05, .85]]) svg += tree(u!, v!, s!);
+  const [g0, g1, h0, h1] = [end + .6, end + 2.3, -8.4, -7.25];
+  const door = (g0 + g1) / 2;
+  const glass = P.paint(P.lights ? '#ffd9a0' : '#3d5661');
+  svg += block(iso, g0, g1, h0, h1, 0, 6 * k, P.paint('#d2c6ae'));
+  svg += polygon([xy(g0 + .12, h1, 1.4 * k), xy(g1 - .12, h1, 1.4 * k), xy(g1 - .12, h1, 4.6 * k), xy(g0 + .12, h1, 4.6 * k)], glass);
+  for (const v of [h0 + .2, h0 + .62]) svg += polygon([xy(g1, v, 2.2 * k), xy(g1, v + .26, 2.2 * k), xy(g1, v + .26, 4.4 * k), xy(g1, v, 4.4 * k)], glass);
+  let mullions = '';
+  for (let u = g0 + .4; u < g1 - .2; u += .28) mullions += `M${pt(xy(u, h1, 1.4 * k))}L${pt(xy(u, h1, 4.6 * k))}`;
+  svg += `<path d="${mullions}" stroke="${P.paint('#8c7f6c')}" stroke-width="${r2(.45 * k)}"/>`;
+  svg += polygon([xy(door - .16, h1, 0), xy(door + .16, h1, 0), xy(door + .16, h1, 3.8 * k), xy(door - .16, h1, 3.8 * k)], P.paint(P.lights ? '#ffe7b0' : '#2c4651'));
+  for (let i = 0; i < 4; i++) {
+    const [a, b] = [door - .3 + i * .15, door - .15 + i * .15];
+    svg += polygon([xy(a, h1, 5 * k), xy(b, h1, 5 * k), xy(b, h1 + .28, 4 * k), xy(a, h1 + .28, 4 * k)], P.paint(P.snow ? '#e3ebee' : ['#d0616d', '#f0e6d2'][i % 2]!));
+  }
+  svg += prism(iso, [[g0 - .06, h0 - .06], [g1 + .06, h0 - .06], [g1 + .06, h1 + .08], [g0 - .06, h1 + .08]], 6 * k, .7 * k, P.paint('#3f7f86'), P.paint(P.snow ? '#dbe5e9' : '#4b8b96'));
+  const [s0, s1] = [g0 + .35, g0 + 1.15];
+  svg += polygon([xy(s0, h1 - .05, 6.7 * k), xy(s1, h1 - .05, 6.7 * k), xy(s1, h1 - .05, 9.8 * k), xy(s0, h1 - .05, 9.8 * k)], P.paint('#24414b'));
+  const logo = xy((s0 + s1) / 2, h1 - .05, 8.4 * k);
+  const neon = P.lights ? '#ffd59a' : P.paint('#c9dce2');
+  svg += circle(logo, .9 * k, 'none', ` stroke="${neon}" stroke-width="${r2(.4 * k)}"`);
+  svg += `<path d="M${pt([logo[0] - .9 * k, logo[1]])}L${pt([logo[0] + .9 * k, logo[1]])}M${pt([logo[0], logo[1] - .9 * k])}L${pt([logo[0], logo[1] + .9 * k])}M${pt([logo[0] - .7 * k, logo[1] + 1.4 * k])}L${pt(logo)}L${pt([logo[0] + .7 * k, logo[1] + 1.4 * k])}" fill="none" stroke="${neon}" stroke-width="${r2(.35 * k)}"/>`;
+  for (const [a, b] of [[g0 + .08, door - .28], [door + .28, g1 - .08]]) {
+    svg += prism(iso, [[a!, h1 + .02], [b!, h1 + .02], [b!, h1 + .17], [a!, h1 + .17]], 0, .7 * k, P.paint('#5d4c43'), P.paint(P.snow ? '#dfe7ea' : '#3f6b4e'));
+    if (!P.snow) [.2, .5, .8].forEach((f, i) => { svg += circle(xy(a! + (b! - a!) * f, h1 + .1, k), .5 * k, P.paint(t.land.flowers[(i + (a! > door ? 2 : 0)) % t.land.flowers.length]!, .5)); });
+  }
+  for (const [uu, uv, cloth] of [[end + .75, -6.5, '#d0616d'], [end + 1.6, -6.12, '#3f98a1']] as [number, number, string][]) {
+    svg += line([xy(uu, uv), xy(uu, uv, 5.8 * k)], P.paint('#8a9aa3'), .45 * k);
+    svg += prism(iso, ring(uu, uv, .17, 8), 1.5 * k, .35 * k, P.paint('#7a5b48'));
+    svg += cone(8, xy(uu, uv, 5.9 * k), a => xy(uu + .34 * Math.cos(a), uv + .34 * Math.sin(a), 4.8 * k), (P.snow ? ['#e3ebee'] : [cloth, '#f0e6d2']).map(c => P.paint(c)), .18);
+  }
+  const [gv0, gv1] = [-5.78, -5.45];
+  for (const u0 of [end + 3, end + 4.84]) {
+    svg += block(iso, u0, u0 + .36, gv0, gv1, 0, 12 * k, P.paint('#3f8691'));
+    svg += polygon([xy(u0 + .07, gv1, 2.4 * k), xy(u0 + .29, gv1, 2.4 * k), xy(u0 + .29, gv1, 4.8 * k), xy(u0 + .07, gv1, 4.8 * k)], P.paint(P.lights ? '#ffd9a0' : '#2f4d5a'));
+    svg += block(iso, u0 - .05, u0 + .41, gv0 - .05, gv1 + .05, 12 * k, .9 * k, P.paint('#d8b45e'));
+  }
+  // 两根柱子之间拱起一块招牌，夜里下沿一排灯交替明暗；柱顶和拱顶各插一面彩旗。
+  const arch = (f: number, z: number): Pt => xy(end + 3.18 + 1.84 * f, gv1 + .06, (z + 7.2 * f * (1 - f)) * k);
+  const span = Array.from({ length: 9 }, (_, i) => i / 8);
+  const band = (z0: number, z1: number): Pt[] => [...span.map(f => arch(f, z0)), ...span.map(f => arch(f, z1)).reverse()];
+  svg += polygon(band(9, 11.9), P.paint('#c95f6d')) + polygon(band(10.1, 10.8), P.paint('#efe1c6'));
+  if (P.lights) span.slice(1, -1).forEach((f, i) => { svg += circle(arch(f, 9.4), .45 * k, P.paint('#ffe6a8'), ` class="bulb${i % 2}"`); });
+  for (const [f, color] of [[0, '#f5c26b'], [.5, '#e0606f'], [1, '#7fd0dc']] as [number, string][]) {
+    const base = f === .5 ? arch(f, 11.9) : xy(end + 3.18 + 1.84 * f, (gv0 + gv1) / 2, 12.9 * k);
+    svg += line([base, [base[0], base[1] - 3.4 * k]], P.paint('#c9ab6b'), .45 * k);
+    svg += polygon([[base[0], base[1] - 3.4 * k], [base[0] + 2.4 * k, base[1] - 2.8 * k], [base[0], base[1] - 2.2 * k]], P.paint(color));
   }
   return { svg: `<g data-landmark="amusement-park">${svg}</g>`, css: css.join('\n') };
 }
