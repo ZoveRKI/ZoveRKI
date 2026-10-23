@@ -7,8 +7,10 @@ const pt = ([x, y]: Pt): string => `${r2(x)},${r2(y)}`;
 const polygon = (points: Pt[], fill: string): string => `<polygon points="${points.map(pt).join(' ')}" fill="${fill}"/>`;
 const line = (points: Pt[], color: string, width: number, extra = ''): string => `<path d="M${points.map(pt).join('L')}" fill="none" stroke="${color}" stroke-width="${r2(width)}"${extra}/>`;
 const circle = ([x, y]: Pt, r: number, fill: string, extra = ''): string => `<circle cx="${r2(x)}" cy="${r2(y)}" r="${r2(r)}" fill="${fill}"${extra}/>`;
+/** 城市右端海滨广场的地面色；亭子的庭院和广场连成一片，共用这一种颜色 */
+export const plazaGround = (P: Painter): string => P.paint(P.snow ? '#455560' : '#203237');
 /** 地面上以 (u, v) 为中心、外接圆半径为 r 的正 n 边形，第一个顶点朝 +u */
-const ring = (u: number, v: number, r: number, n: number): Pt[] => Array.from({ length: n }, (_, i) => [u + r * Math.cos(i * 2 * Math.PI / n), v + r * Math.sin(i * 2 * Math.PI / n)]);
+const ring =(u: number, v: number, r: number, n: number): Pt[] => Array.from({ length: n }, (_, i) => [u + r * Math.cos(i * 2 * Math.PI / n), v + r * Math.sin(i * 2 * Math.PI / n)]);
 
 function block(iso: Iso, u0: number, u1: number, v0: number, v1: number, z: number, h: number, color: string): string {
   const { xy } = iso;
@@ -138,15 +140,15 @@ function pavilion(iso: Iso, P: Painter): { ground: string; building: string } {
   const right = (iso.x1 - xy(0, 0)[0]) / unit;
   const v = 5.55;
   const u = Math.min(weeks + 9.4, right - 12 * k / unit + v - 1.85);
-  // 庭院接到既有广场，并一直铺到右边框、滨海路内沿，保留折角而非方形地基。
-  const outline = trim([[weeks + 5.7, -.05], [right + 9, -.05], [right + 9, 7.02], [weeks + 5.6, 7.02], [weeks + 5.6, 6.4], [weeks + 5.05, 5.85], [weeks + 5.65, 4.8]], ([u, v]) => right - u + v);
-  let ground = polygon(outline.map(([u, v]) => xy(u, v)), P.paint(P.snow ? '#647477' : '#2b4140'));
-  ground += line([xy(weeks + 5.65, 6.97), xy(right + 6.97, 6.97)], P.paint('#687b75'), .65 * k);
+  // 庭院接到既有广场，并一直铺到右边框、滨海路内沿，保留折角而非方形地基；地面和广场同色，看起来是同一片园地。
+  // 前沿停在路面内沿（v = 7.1）里侧一点：不压到路面，也不在两者之间漏出一条深色底色的细缝。
+  const outline = trim([[weeks + 5.7, -.05], [right + 9, -.05], [right + 9, 7.09], [weeks + 5.6, 7.09], [weeks + 5.6, 6.4], [weeks + 5.05, 5.85], [weeks + 5.65, 4.8]], ([u, v]) => right - u + v);
+  let ground = polygon(outline.map(([u, v]) => xy(u, v)), plazaGround(P));
   // 台阶开在右前方那条边上（外法线朝 22.5°）；石板路从最下一级台阶起步，拐个弯垂直接到滨海路内沿，不再从台基底下穿过。
   const facing = Math.PI / 8;
   const local = (x: number, y: number): Pt => [u + x * Math.cos(facing) - y * Math.sin(facing), v + x * Math.sin(facing) + y * Math.cos(facing)];
   const apothem = 1.22 * Math.cos(facing);
-  const [a, b, c]: Pt[] = [local(apothem + .34, 0), [u + 2.75, 6.5], [u + 2.75, 7]];
+  const [a, b, c]: Pt[] = [local(apothem + .34, 0), [u + 2.75, 6.5], [u + 2.75, 7.09]];
   const slabs = Array.from({ length: 13 }, (_, i): [Pt, Pt] => {
     const s = i / 12;
     const [pu, pv] = [0, 1].map(axis => (1 - s) ** 2 * a![axis]! + 2 * s * (1 - s) * b![axis]! + s * s * c![axis]!);

@@ -4,7 +4,7 @@ import { r2, shade } from '../svg.ts';
 import { theme as t } from '../theme.ts';
 import type { Iso, Painter, Pt } from './landscape.ts';
 import { railMotion, RAIL_SPEED, type RailFrame } from './rail-motion.ts';
-import { landmarks } from './landmarks.ts';
+import { landmarks, plazaGround } from './landmarks.ts';
 
 type Drawing = { svg: string; css: string };
 type At = (u: number, v: number, z?: number) => Pt;
@@ -146,7 +146,7 @@ function station(iso: Iso, P: Painter): { ground: string; building: string } {
 /** 右端的低矮广场：步道、花池、长椅；高低错开，给 Mon/Fri 标签留出空位 */
 function plaza(iso: Iso, P: Painter): string {
   const { xy, k, weeks: w } = iso;
-  let svg = polygon([xy(w + 0.15, -0.05), xy(w + 6.4, -0.05), xy(w + 6.4, 7.7), xy(w + 4.3, 9.4), xy(w + 0.15, 9.4)], P.paint(P.snow ? '#455560' : '#203237'));
+  let svg = polygon([xy(w + 0.15, -0.05), xy(w + 6.4, -0.05), xy(w + 6.4, 7.7), xy(w + 4.3, 9.4), xy(w + 0.15, 9.4)], plazaGround(P));
   for (const v of [3.2, 5.2, 7.2]) svg += line([xy(w + 0.3, v), xy(w + 6, v)], P.paint('#45515b'), 0.5 * k);
   svg += line([xy(w + 2.4, 0.2), xy(w + 2.4, 9.2)], P.paint('#53626d'), 0.6 * k);
   for (const [u, v] of [[w + 3.8, 2.8], [w + 4.9, 5.4]]) {
