@@ -243,12 +243,17 @@ function city(
   };
 }
 
-/** 底部：日期范围、颜色图例，以及天色、天气和日出日落时间（手机版天色单独一行）；返回标记和最后一行的位置 */
+/**
+ * 底部：日期范围、图例，以及天色、天气和日出日落时间（手机版天色单独一行）；返回标记和最后一行的位置。
+ * 图例是从空地到高楼的一排小楼：楼越高、楼顶颜色越亮，当天的贡献越多；墙面、窗户和最高那座的航空灯都和城里的楼一样
+ */
 function legend(g: Geo, c: Ctx, y: number): [string, number] {
   const size = g.small - 1;
-  const sq = g.phone ? 9 : 10;
-  const gap = 3;
-  const colors = [t.panel, ...t.levels];
+  const p = c.sky?.phase ?? 'night';
+  const F = facade(p);
+  // a 是小楼地块的半宽（地块宽 2a、高 a），heights 是五档的楼高，第一档是没有楼的空地
+  const [a, gap, scale] = g.phone ? [5, 3, 0.8] : [6, 4, 1];
+  const heights = [0, 4, 7, 11, 16].map((h) => h * scale);
   const range = `${c.days[0]?.date ?? ''} – ${c.days.at(-1)?.date ?? ''}`;
   let sky = '';
   let rowY = y;
@@ -259,13 +264,37 @@ function legend(g: Geo, c: Ctx, y: number): [string, number] {
     if (g.phone) rowY = y + size + 10;
   }
   // 图例平时靠右；桌面版右边要写天色时，接在日期范围后面
-  const keyW = textWidth('less', size) + 8 + colors.length * (sq + gap) - gap + 8 + textWidth('more', size);
+  const keyW = textWidth('less', size) + 8 + heights.length * (2 * a + gap) - gap + 8 + textWidth('more', size);
   const x0 = c.sky && !g.phone ? g.left + textWidth(range, size) + 32 : g.right - keyW;
   const sx = x0 + textWidth('less', size) + 8;
-  const squares = colors
-    .map((fill, i) => `<rect x="${r2(sx + i * (sq + gap))}" y="${rowY - sq + 1}" width="${sq}" height="${sq}" rx="2" fill="${fill}"/>`)
+  let flicks = 0;
+  const towers = heights
+    .map((h, i) => {
+      // 地块的下角落在文字基线下 1px，和原来色块的底边对齐
+      const [cx, gy] = [sx + a + i * (2 * a + gap), rowY + 1];
+      const base: Pt[] = [
+        [cx, gy - a],
+        [cx + a, gy - a / 2],
+        [cx, gy],
+        [cx - a, gy - a / 2],
+      ];
+      const [, R, B, L] = base as [Pt, Pt, Pt, Pt];
+      if (!h) return polygon(base, t.panel);
+      const lift = ([x, y]: Pt): Pt => [x, y - h];
+      let shapes =
+        polygon([L, B, lift(B), lift(L)], F.left) +
+        polygon([B, R, lift(R), lift(B)], F.right) +
+        polygon(base.map(lift), t.levels[i - 1] ?? t.accent) +
+        windows(`legend-${i}`, [[L, B], [B, R]], h, 0.45 * scale, p, F, () => flicks++);
+      if (i === heights.length - 1) {
+        const top = gy - a / 2 - h;
+        const tip = top - 4 * scale;
+        shapes += `<path d="M${r2(cx)} ${r2(top)}V${r2(tip)}" stroke="${t.dim}" stroke-width="${r2(0.8 * scale)}" opacity=".7"/><circle class="beacon" cx="${r2(cx)}" cy="${r2(tip)}" r="${r2(1.2 * scale)}" fill="${t.city.beacon}"/>`;
+      }
+      return shapes;
+    })
     .join('');
-  const markup = `<g class="in" ${delay(1.2)}><text x="${g.left}" y="${rowY}" class="faint" font-size="${size}">${range}</text><text x="${r2(x0)}" y="${rowY}" class="faint" font-size="${size}">less</text>${squares}<text x="${r2(sx + colors.length * (sq + gap) - gap + 8)}" y="${rowY}" class="faint" font-size="${size}">more</text>${sky}</g>`;
+  const markup = `<g class="in" ${delay(1.2)}><text x="${g.left}" y="${rowY}" class="faint" font-size="${size}">${range}</text><text x="${r2(x0)}" y="${rowY}" class="faint" font-size="${size}">less</text>${towers}<text x="${r2(sx + heights.length * (2 * a + gap) - gap + 8)}" y="${rowY}" class="faint" font-size="${size}">more</text>${sky}</g>`;
   return [markup, rowY];
 }
 
