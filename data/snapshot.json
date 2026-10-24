@@ -2082,9 +2082,9 @@
     }
   ],
   "sky": {
-    "phase": "dawn",
-    "event": "sunrise",
-    "at": "05:56 JST",
+    "phase": "day",
+    "event": "sunset",
+    "at": "16:55 JST",
     "weather": "cloudy"
   }
 }
