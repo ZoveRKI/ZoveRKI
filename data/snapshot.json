@@ -1,6 +1,6 @@
 {
   "login": "ZoveRKI",
-  "asOf": "2026-10-24",
+  "asOf": "2026-10-25",
   "user": {
     "name": null,
     "bio": null,
@@ -137,41 +137,6 @@
   "calendar": {
     "total": 450,
     "days": [
-      {
-        "date": "2025-10-19",
-        "count": 0,
-        "level": 0
-      },
-      {
-        "date": "2025-10-20",
-        "count": 0,
-        "level": 0
-      },
-      {
-        "date": "2025-10-21",
-        "count": 0,
-        "level": 0
-      },
-      {
-        "date": "2025-10-22",
-        "count": 0,
-        "level": 0
-      },
-      {
-        "date": "2025-10-23",
-        "count": 0,
-        "level": 0
-      },
-      {
-        "date": "2025-10-24",
-        "count": 0,
-        "level": 0
-      },
-      {
-        "date": "2025-10-25",
-        "count": 0,
-        "level": 0
-      },
       {
         "date": "2025-10-26",
         "count": 0,
@@ -1991,6 +1956,11 @@
         "date": "2026-10-24",
         "count": 0,
         "level": 0
+      },
+      {
+        "date": "2026-10-25",
+        "count": 0,
+        "level": 0
       }
     ]
   },
@@ -2115,6 +2085,6 @@
     "phase": "night",
     "event": "sunrise",
     "at": "05:56 JST",
-    "weather": "cloudy"
+    "weather": "overcast"
   }
 }
