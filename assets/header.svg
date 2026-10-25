@@ -51,8 +51,8 @@ svg{font-family:ZMono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-
 <g class="in" style="animation-delay:1.35s"><text x="540" y="134" font-size="13"><tspan class="ac2" font-weight="700">uptime</tspan><tspan x="610.2">2y 5m</tspan></text></g>
 <g class="in" style="animation-delay:1.43s"><text x="540" y="156" font-size="13"><tspan class="ac2" font-weight="700">repos</tspan><tspan x="610.2">4 public</tspan></text></g>
 <g class="in" style="animation-delay:1.51s"><text x="540" y="178" font-size="13"><tspan class="ac2" font-weight="700">langs</tspan><tspan x="610.2">Rust, Go, TypeScript</tspan></text></g>
-<g class="in" style="animation-delay:1.59s"><text x="540" y="200" font-size="13"><tspan class="ac2" font-weight="700">contrib</tspan><tspan x="610.2">450 in the last year</tspan></text></g>
-<g class="in" style="animation-delay:1.67s"><text x="540" y="222" font-size="13"><tspan class="ac2" font-weight="700">streak</tspan><tspan x="610.2">0 days · best 10</tspan></text></g>
+<g class="in" style="animation-delay:1.59s"><text x="540" y="200" font-size="13"><tspan class="ac2" font-weight="700">contrib</tspan><tspan x="610.2">451 in the last year</tspan></text></g>
+<g class="in" style="animation-delay:1.67s"><text x="540" y="222" font-size="13"><tspan class="ac2" font-weight="700">streak</tspan><tspan x="610.2">1 day · best 10</tspan></text></g>
 <g class="in" style="animation-delay:1.80s"><rect x="540" y="238" width="16" height="10" rx="2" fill="#ff6b81"/><rect x="560" y="238" width="16" height="10" rx="2" fill="#f5c26b"/><rect x="580" y="238" width="16" height="10" rx="2" fill="#4fd69c"/><rect x="600" y="238" width="16" height="10" rx="2" fill="#4fd8eb"/><rect x="620" y="238" width="16" height="10" rx="2" fill="#5aaeff"/><rect x="640" y="238" width="16" height="10" rx="2" fill="#b48cff"/><rect x="660" y="238" width="16" height="10" rx="2" fill="#8494aa"/><rect x="680" y="238" width="16" height="10" rx="2" fill="#d3dbe8"/></g>
 <path d="M16 16V280M864 16V280M16 16H864" fill="none" stroke="#5aaeff" stroke-width="1.2"/>
 <g fill="none" stroke="#5aaeff" stroke-width="2"><path d="M9 34V9H34"/><path d="M846 9H871V34"/></g>
