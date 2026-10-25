@@ -244,12 +244,20 @@ test('临海景物从远到近遮挡，汽车不能盖过路灯、站棚，接�
   }
 });
 
-test('两架飞机从画外沿不同曲线进入，完整循环避开彼此、统计、高架和游乐园，保留红白闪灯', async () => {
+test('两架飞机从画外沿不同曲线进入，完整循环避开彼此、统计、高架和游乐园，左翼红灯、右翼绿灯、机尾白灯且机头无灯', async () => {
   for (const g of [DESKTOP, PHONE]) {
     const svg = await contributions(g, buildContext(config, snapshot()));
     const k = g.phone ? 0.6 : 1;
     assert.equal([...svg.matchAll(/class="plane"/g)].length, 2);
     assert.match(svg, /\.blip\{animation:zblip 1.4s infinite\}/);
+    const lights = [...svg.matchAll(/<circle class="blip" cx="([\d.]+)" cy="([-\d.]+)" r="1.6" fill="(#[a-f\d]+)"[^>]*\/>/g)]
+      .map(([, x, y, fill]) => ({ x: Number(x), y: Number(y), fill }));
+    const expected = [
+      { x: 6.3, y: -4.8, fill: '#ff7b72' },
+      { x: 6.3, y: 5.2, fill: theme.green },
+      { x: 0, y: 1, fill: '#f0f6fc' },
+    ];
+    assert.deepEqual(lights, [...expected, ...expected]);
     assert.equal([...svg.matchAll(/fill="#f0f6fc" style="animation-delay:.7s"/g)].length, 2);
     const routes = [0, 1].map(id => {
       const css = svg.match(new RegExp(`@keyframes zflight${id}\\{(.*?)\\n`))?.[1] ?? '';
@@ -275,8 +283,8 @@ test('两架飞机从画外沿不同曲线进入，完整循环避开彼此、�
       const f = (time - a.time) / (b.time - a.time);
       const p = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, angle: (a.angle + (b.angle - a.angle) * f) * Math.PI / 180 };
       // 包含机翼、机头和灯光的旋转包围盒。
-      const dx = (13.6 * Math.abs(Math.cos(p.angle)) + 5.2 * Math.abs(Math.sin(p.angle))) * k;
-      const dy = (13.6 * Math.abs(Math.sin(p.angle)) + 5.2 * Math.abs(Math.cos(p.angle))) * k;
+      const dx = (13.6 * Math.abs(Math.cos(p.angle)) + 6.8 * Math.abs(Math.sin(p.angle))) * k;
+      const dy = (13.6 * Math.abs(Math.sin(p.angle)) + 6.8 * Math.abs(Math.cos(p.angle))) * k;
       return { ...p, dx, dy, visible: p.x + dx > g.x0 && p.x - dx < g.x1 };
     };
     const landY = Number(svg.match(/<mask id="land"[^>]* y="([\d.]+)"/)?.[1]);

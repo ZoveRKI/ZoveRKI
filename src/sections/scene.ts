@@ -207,7 +207,7 @@ function cloud(x: number, y: number, size: number, k: number, i: number, [rim, f
   return `<g class="c${i % 3}"><g fill="none" stroke="${rim}" stroke-width="${r2(4 * k)}" opacity=".35" filter="url(#soft)">${parts}</g><g fill="none" stroke="${rim}" stroke-width="${r2(1.8 * k)}">${parts}</g><g fill="${fill}">${parts}</g></g>`;
 }
 
-/** 两架远处的双发客机共用 48 秒循环，沿不同曲线飞行；保留原来的红白闪灯。 */
+/** 两架远处的双发客机共用 48 秒循环，沿不同曲线飞行；左翼红灯、右翼绿灯、机尾白灯。 */
 function plane(st: Stage): Part {
   const k = st.k;
   const width = st.x1 - st.x0;
@@ -243,7 +243,9 @@ function plane(st: Stage): Part {
     .map((x) => `<rect x="${x}" y=".5" width=".7" height=".7" rx=".2" fill="${t.panel}"/>`)
     .join('');
   const near = `<path d="M1.3 .3L2.1 -3.6H3.3L6 .3Z" fill="${t.accent}" opacity=".7"/><path d="M16.2 1.5L7.3 5.2H5.3L10.5 1.1Z" fill="${t.dim}"/><path d="M10.5 1.2L6.4 4.8" stroke="${t.fg}" stroke-width=".4" opacity=".5"/><rect x="10.7" y="3.1" width="4.6" height="1.6" rx=".8" fill="${t.faint}"/><path d="M14.4 3.3V4.5" stroke="${t.panel}" stroke-width=".7"/>`;
-  const model = `${wings}${body}${cockpit}${windows}${near}<circle class="blip" cx="0" cy="1" r="1.6" fill="#ff7b72"/><circle class="blip" cx="24" cy="1" r="1.6" fill="#f0f6fc" style="animation-delay:.7s"/>`;
+  // 机头朝右时，上侧是左翼、下侧是右翼；灯光随模型一起转弯和镜像，机头不设灯。
+  const lights = `<circle class="blip" cx="6.3" cy="-4.8" r="1.6" fill="#ff7b72"/><circle class="blip" cx="6.3" cy="5.2" r="1.6" fill="${t.green}"/><circle class="blip" cx="0" cy="1" r="1.6" fill="#f0f6fc" style="animation-delay:.7s"/>`;
+  const model = `${wings}${body}${cockpit}${windows}${near}${lights}`;
   return {
     css: `${css.join('\n')}
 @keyframes zblip{0%,90%,100%{opacity:0}93%{opacity:1}}
