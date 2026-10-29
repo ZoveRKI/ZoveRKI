@@ -140,7 +140,7 @@
     }
   ],
   "calendar": {
-    "total": 459,
+    "total": 462,
     "days": [
       {
         "date": "2025-10-26",
@@ -1984,13 +1984,13 @@
       },
       {
         "date": "2026-10-29",
-        "count": 0,
-        "level": 0
+        "count": 3,
+        "level": 1
       }
     ]
   },
   "activity": {
-    "commits": 427,
+    "commits": 430,
     "issues": 1,
     "pullRequests": 21,
     "reviews": 0,
@@ -2017,7 +2017,7 @@
         "commits": 1
       }
     ],
-    "privateCommits": 376
+    "privateCommits": 379
   },
   "privateLanguages": [
     {
@@ -2028,7 +2028,7 @@
     {
       "name": "Ruby",
       "color": "#701516",
-      "size": 122274
+      "size": 122287
     },
     {
       "name": "Go",
@@ -2048,7 +2048,7 @@
     {
       "name": "Shell",
       "color": "#89e051",
-      "size": 68361
+      "size": 69572
     },
     {
       "name": "SCSS",
@@ -2107,9 +2107,9 @@
     }
   ],
   "sky": {
-    "phase": "dusk",
-    "event": "sunset",
-    "at": "16:50 JST",
+    "phase": "night",
+    "event": "sunrise",
+    "at": "06:00 JST",
     "weather": "cloudy"
   }
 }
