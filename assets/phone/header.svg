@@ -48,7 +48,7 @@ svg{font-family:ZMono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-
 <text x="24" y="200" font-weight="700"><tspan class="ac">ZoveRKI</tspan><tspan class="faint">@</tspan><tspan class="ac2">github</tspan></text>
 <line x1="24" y1="210" x2="141.6" y2="210" stroke="#56647a" stroke-dasharray="4 3"/>
 </g>
-<g class="in" style="animation-delay:1.35s"><text x="24" y="228" font-size="12"><tspan class="ac2" font-weight="700">uptime</tspan><tspan x="88.8">2y 5m</tspan></text></g>
+<g class="in" style="animation-delay:1.35s"><text x="24" y="228" font-size="12"><tspan class="ac2" font-weight="700">uptime</tspan><tspan x="88.8">2y 6m</tspan></text></g>
 <g class="in" style="animation-delay:1.43s"><text x="24" y="249" font-size="12"><tspan class="ac2" font-weight="700">repos</tspan><tspan x="88.8">4 public</tspan></text></g>
 <g class="in" style="animation-delay:1.51s"><text x="24" y="270" font-size="12"><tspan class="ac2" font-weight="700">langs</tspan><tspan x="88.8">Rust, Go, TypeScript, Python, Ruby</tspan></text></g>
 <g class="in" style="animation-delay:1.59s"><text x="24" y="291" font-size="12"><tspan class="ac2" font-weight="700">contrib</tspan><tspan x="88.8">462 in the last year</tspan></text></g>
