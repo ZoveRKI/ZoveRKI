@@ -11,6 +11,53 @@
   },
   "repos": [
     {
+      "name": "token-monitor",
+      "url": "https://github.com/ZoveRKI/token-monitor",
+      "description": "Local-first desktop widget for tracking token usage, costs, and limits across 41+ AI coding tools—including Claude Code, Codex, Cursor, OpenCode, and OpenClaw—with multi-device sync.",
+      "homepage": "http://javis-ai.com/token-monitor/",
+      "fork": true,
+      "archived": false,
+      "stars": 0,
+      "forks": 0,
+      "license": "MIT",
+      "topics": [],
+      "language": "JavaScript",
+      "languages": [
+        {
+          "name": "JavaScript",
+          "color": "#f1e05a",
+          "size": 17482904
+        },
+        {
+          "name": "CSS",
+          "color": "#663399",
+          "size": 594016
+        },
+        {
+          "name": "HTML",
+          "color": "#e34c26",
+          "size": 440517
+        },
+        {
+          "name": "Swift",
+          "color": "#F05138",
+          "size": 198247
+        },
+        {
+          "name": "C#",
+          "color": "#7355dd",
+          "size": 22576
+        },
+        {
+          "name": "NSIS",
+          "color": null,
+          "size": 2053
+        }
+      ],
+      "pushedAt": "2026-10-29T06:59:17Z",
+      "createdAt": "2026-09-29T06:19:24Z"
+    },
+    {
       "name": "ZoveRKI",
       "url": "https://github.com/ZoveRKI/ZoveRKI",
       "description": null,
@@ -31,48 +78,6 @@
       ],
       "pushedAt": "2026-10-21T16:45:25Z",
       "createdAt": "2026-10-21T16:45:25Z"
-    },
-    {
-      "name": "token-monitor",
-      "url": "https://github.com/ZoveRKI/token-monitor",
-      "description": "Local-first desktop widget for tracking token usage, costs, and limits across 41+ AI coding tools—including Claude Code, Codex, Cursor, OpenCode, and OpenClaw—with multi-device sync.",
-      "homepage": "http://javis-ai.com/token-monitor/",
-      "fork": true,
-      "archived": false,
-      "stars": 0,
-      "forks": 0,
-      "license": "MIT",
-      "topics": [],
-      "language": "JavaScript",
-      "languages": [
-        {
-          "name": "JavaScript",
-          "color": "#f1e05a",
-          "size": 15347334
-        },
-        {
-          "name": "CSS",
-          "color": "#663399",
-          "size": 528316
-        },
-        {
-          "name": "HTML",
-          "color": "#e34c26",
-          "size": 306482
-        },
-        {
-          "name": "Swift",
-          "color": "#F05138",
-          "size": 188192
-        },
-        {
-          "name": "NSIS",
-          "color": null,
-          "size": 2053
-        }
-      ],
-      "pushedAt": "2026-10-21T05:38:40Z",
-      "createdAt": "2026-09-29T06:19:24Z"
     },
     {
       "name": "OneByOne",
@@ -2102,9 +2107,9 @@
     }
   ],
   "sky": {
-    "phase": "day",
+    "phase": "dusk",
     "event": "sunset",
     "at": "16:50 JST",
-    "weather": "clear"
+    "weather": "cloudy"
   }
 }
