@@ -2102,7 +2102,7 @@
     }
   ],
   "sky": {
-    "phase": "night",
+    "phase": "dawn",
     "event": "sunrise",
     "at": "06:05 JST",
     "weather": "clear"
