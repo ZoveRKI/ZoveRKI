@@ -26,17 +26,17 @@
         {
           "name": "JavaScript",
           "color": "#f1e05a",
-          "size": 17482904
+          "size": 18379668
         },
         {
           "name": "CSS",
           "color": "#663399",
-          "size": 594016
+          "size": 604734
         },
         {
           "name": "HTML",
           "color": "#e34c26",
-          "size": 440517
+          "size": 459851
         },
         {
           "name": "Swift",
@@ -54,7 +54,7 @@
           "size": 2053
         }
       ],
-      "pushedAt": "2026-10-29T06:59:17Z",
+      "pushedAt": "2026-11-04T02:24:20Z",
       "createdAt": "2026-09-29T06:19:24Z"
     },
     {
@@ -2102,9 +2102,9 @@
     }
   ],
   "sky": {
-    "phase": "day",
-    "event": "sunset",
-    "at": "16:44 JST",
-    "weather": "cloudy"
+    "phase": "night",
+    "event": "sunrise",
+    "at": "06:06 JST",
+    "weather": "drizzle"
   }
 }
