@@ -140,7 +140,7 @@
     }
   ],
   "calendar": {
-    "total": 460,
+    "total": 466,
     "days": [
       {
         "date": "2025-11-02",
@@ -1989,13 +1989,13 @@
       },
       {
         "date": "2026-11-06",
-        "count": 0,
-        "level": 0
+        "count": 6,
+        "level": 2
       }
     ]
   },
   "activity": {
-    "commits": 428,
+    "commits": 434,
     "issues": 1,
     "pullRequests": 21,
     "reviews": 0,
@@ -2022,7 +2022,7 @@
         "commits": 1
       }
     ],
-    "privateCommits": 377
+    "privateCommits": 383
   },
   "privateLanguages": [
     {
@@ -2053,7 +2053,7 @@
     {
       "name": "Shell",
       "color": "#89e051",
-      "size": 69572
+      "size": 69085
     },
     {
       "name": "SCSS",
@@ -2073,7 +2073,7 @@
     {
       "name": "Python",
       "color": "#3572A5",
-      "size": 26985
+      "size": 39323
     },
     {
       "name": "Makefile",
@@ -2112,9 +2112,9 @@
     }
   ],
   "sky": {
-    "phase": "day",
-    "event": "sunset",
-    "at": "16:43 JST",
-    "weather": "clear"
+    "phase": "night",
+    "event": "sunrise",
+    "at": "06:08 JST",
+    "weather": "cloudy"
   }
 }
