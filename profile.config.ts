@@ -27,6 +27,8 @@ export default {
   techStack: {
     languages: ['Rust', 'Go', 'TypeScript', 'JavaScript', 'Python', 'Ruby'],
     frontend: ['React', 'Vite'],
+    // 桌面应用框架
+    desktop: ['Electron', 'GPUI'],
     // Web 框架
     backend: ['axum', 'Gin', 'Rails'],
     // 异步运行时和序列化，不只用在后端
