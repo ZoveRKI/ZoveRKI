@@ -2112,7 +2112,7 @@
     }
   ],
   "sky": {
-    "phase": "day",
+    "phase": "dusk",
     "event": "sunset",
     "at": "16:37 JST",
     "weather": "clear"
