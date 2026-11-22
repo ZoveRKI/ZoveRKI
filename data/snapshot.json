@@ -1,6 +1,6 @@
 {
   "login": "ZoveRKI",
-  "asOf": "2026-11-22",
+  "asOf": "2026-11-23",
   "user": {
     "name": null,
     "bio": null,
@@ -1966,6 +1966,11 @@
         "date": "2026-11-22",
         "count": 0,
         "level": 0
+      },
+      {
+        "date": "2026-11-23",
+        "count": 0,
+        "level": 0
       }
     ]
   },
@@ -2087,9 +2092,9 @@
     }
   ],
   "sky": {
-    "phase": "dusk",
-    "event": "sunset",
-    "at": "16:32 JST",
+    "phase": "night",
+    "event": "sunrise",
+    "at": "06:25 JST",
     "weather": "clear"
   }
 }
