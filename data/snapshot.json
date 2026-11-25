@@ -140,7 +140,7 @@
     }
   ],
   "calendar": {
-    "total": 464,
+    "total": 465,
     "days": [
       {
         "date": "2025-11-23",
@@ -1979,15 +1979,15 @@
       },
       {
         "date": "2026-11-25",
-        "count": 0,
-        "level": 0
+        "count": 1,
+        "level": 1
       }
     ]
   },
   "activity": {
     "commits": 432,
     "issues": 1,
-    "pullRequests": 21,
+    "pullRequests": 22,
     "reviews": 0,
     "restricted": 0,
     "repos": [
@@ -2102,9 +2102,9 @@
     }
   ],
   "sky": {
-    "phase": "day",
-    "event": "sunset",
-    "at": "16:30 JST",
+    "phase": "night",
+    "event": "sunrise",
+    "at": "06:28 JST",
     "weather": "clear"
   }
 }
